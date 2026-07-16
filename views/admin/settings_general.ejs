@@ -1,0 +1,51 @@
+<%- include('../partials/header', { title: 'General Settings' }) %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-sliders"></i> General <span>Settings</span></h1>
+        <p class="admin-page-sub">Configure form requirements and global spending limits.</p>
+    </div>
+</div>
+
+<% if (error) { %><div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span></div><% } %>
+<% if (success) { %><div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span></div><% } %>
+
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-sliders"></i> Form Field Requirements &amp; Spending Limit</h2>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/settings" method="POST">
+            <div class="settings-row">
+                <label class="toggle-group">
+                    <input type="checkbox" name="supervisor_required" value="true" <%= settings.supervisor_required ? 'checked' : '' %>>
+                    <span><i class="fa-solid fa-user-tie" style="color:var(--primary);"></i> &nbsp;Require <strong>Supervisor</strong> field on expense submission</span>
+                </label>
+                <label class="toggle-group">
+                    <input type="checkbox" name="job_number_required" value="true" <%= settings.job_number_required ? 'checked' : '' %>>
+                    <span><i class="fa-solid fa-hashtag" style="color:var(--primary);"></i> &nbsp;Require <strong>Job Number</strong> field on expense submission</span>
+                </label>
+            </div>
+            <div class="settings-row" style="margin-top: 1rem; align-items: flex-end; gap: 1rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 220px;">
+                    <label for="spending_limit" style="display:block; font-weight:600; margin-bottom:.4rem; font-size:.85rem;">
+                        <i class="fa-solid fa-gauge-high" style="color:var(--warning);"></i> &nbsp;Global Spending Limit per User ($)
+                    </label>
+                    <div style="display:flex; align-items:center; gap:.5rem;">
+                        <span style="font-size:1.1rem; color:var(--text-muted);">$</span>
+                        <input type="number" id="spending_limit" name="spending_limit" min="0" step="0.01"
+                               value="<%= settings.spending_limit > 0 ? settings.spending_limit.toFixed(2) : '' %>"
+                               placeholder="0.00 = no limit"
+                               style="width:160px; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+                        <span style="font-size:0.78rem; color:var(--text-muted);">Default fallback limit</span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" style="white-space: nowrap;">
+                    <i class="fa-solid fa-save"></i> Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

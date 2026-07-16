@@ -1,0 +1,62 @@
+        </main>
+
+        <footer>
+            &copy; <%= new Date().getFullYear() %> Sargtech Technologies &mdash; Expense Reporting Platform &mdash; All data encrypted and securely stored.
+        </footer>
+    </div><!-- /.main-wrapper -->
+
+</div><!-- /.app-shell -->
+
+<script src="/js/app.js"></script>
+<script>
+// ── Theme toggle
+const root     = document.documentElement;
+const toggleBtn = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const themeLabel = document.getElementById('themeLabel');
+
+function applyTheme(t) {
+    root.setAttribute('data-theme', t);
+    localStorage.setItem('sargtech-theme', t);
+    if (themeIcon) {
+        themeIcon.className = t === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+    if (themeLabel) themeLabel.textContent = t === 'dark' ? 'Dark' : 'Light';
+}
+
+// Init from saved
+applyTheme(localStorage.getItem('sargtech-theme') || 'light');
+
+if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+        const current = root.getAttribute('data-theme');
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+}
+
+// Notifications toggle
+const notifToggle = document.getElementById('notif-toggle');
+const notifModal = document.getElementById('notificationsModal');
+const notifClose = document.getElementById('notifClose');
+
+if (notifToggle && notifModal) {
+    notifToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        notifModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    });
+}
+
+function closeNotifModal() {
+    if (notifModal) {
+        notifModal.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+}
+
+if (notifClose) notifClose.addEventListener('click', closeNotifModal);
+if (notifModal) notifModal.addEventListener('click', e => { if (e.target === notifModal) closeNotifModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNotifModal(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,593 @@
+<%- include('partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-sliders"></i> Settings &amp; <span>Config</span></h1>
+        <p class="admin-page-sub">Configure form requirements, the global spending limit, whitelist authorized credit cards, and manage list items.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-sliders"></i> Form Field Requirements &amp; Spending Limit</h2>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/settings" method="POST">
+            <div class="settings-row">
+                <label class="toggle-group">
+                    <input type="checkbox" name="supervisor_required" value="true" <%= settings.supervisor_required ? 'checked' : '' %>>
+                    <span><i class="fa-solid fa-user-tie" style="color:var(--primary);"></i> &nbsp;Require <strong>Supervisor</strong> field on expense submission</span>
+                </label>
+                <label class="toggle-group">
+                    <input type="checkbox" name="job_number_required" value="true" <%= settings.job_number_required ? 'checked' : '' %>>
+                    <span><i class="fa-solid fa-hashtag" style="color:var(--primary);"></i> &nbsp;Require <strong>Job Number</strong> field on expense submission</span>
+                </label>
+            </div>
+            <div class="settings-row" style="margin-top: 1rem; align-items: flex-end; gap: 1rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 220px;">
+                    <label for="spending_limit" style="display:block; font-weight:600; margin-bottom:.4rem; font-size:.85rem;">
+                        <i class="fa-solid fa-gauge-high" style="color:var(--warning);"></i> &nbsp;Global Spending Limit per User ($)
+                    </label>
+                    <div style="display:flex; align-items:center; gap:.5rem;">
+                        <span style="font-size:1.1rem; color:var(--text-muted);">$</span>
+                        <input type="number" id="spending_limit" name="spending_limit" min="0" step="0.01"
+                               value="<%= settings.spending_limit > 0 ? settings.spending_limit.toFixed(2) : '' %>"
+                               placeholder="0.00 = no limit"
+                               style="width:160px; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+                        <span style="font-size:0.78rem; color:var(--text-muted);">Default fallback limit</span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" style="white-space: nowrap;">
+                    <i class="fa-solid fa-save"></i> Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ SUPERVISOR MANAGEMENT ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-user-tie"></i> Supervisor Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= supervisors.length %> supervisor(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/supervisors/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Full Name</label>
+                <input type="text" name="name" required placeholder="e.g. Jane Smith"
+                       style="padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem; min-width:180px;">
+            </div>
+            <div style="flex:1; min-width:160px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Email (optional)</label>
+                <input type="email" name="email" placeholder="jane@sargtech.com"
+                       style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Supervisor
+            </button>
+        </form>
+        <% if (supervisors && supervisors.length > 0) { %>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Name</th><th>Email</th><th style="text-align:right;">Action</th></tr></thead>
+                <tbody>
+                    <% supervisors.forEach(s => { %>
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <strong><%= s.name %></strong>
+                                <% if (s.group_name) { %>
+                                    <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.65rem;"><%= s.group_name %></span>
+                                <% } %>
+                            </div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                                <i class="fa-solid fa-circle-info" style="color:var(--primary);"></i>
+                                Autocreated User Login: username <strong><%= s.name.toLowerCase().replace(/[^a-z0-9]/g, '') %></strong>, password <strong>password123</strong>
+                            </div>
+                        </td>
+                        <td style="color:var(--text-muted);"><%= s.email || '—' %></td>
+                        <td style="text-align:right;">
+                            <form action="/admin/supervisors/remove/<%= s.id %>" method="POST" style="display:inline;"
+                                  onsubmit="return confirm('Remove <%= s.name %>?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;">
+                                    <i class="fa-solid fa-trash-can"></i> Remove
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;">
+            <i class="fa-solid fa-user-tie" style="font-size:2rem; color:var(--text-muted); opacity:.3;"></i>
+            <p style="margin-top:.5rem;">No supervisors yet. Add one above to enable the dropdown on expense forms.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- ═══ JOB NUMBER MANAGEMENT ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-briefcase"></i> Job Number Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= jobNumbers.length %> job(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/jobnumbers/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Job Number</label>
+                <input type="text" name="job_number" required placeholder="e.g. JOB-2024"
+                       style="width:130px; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; font-weight:700; letter-spacing:.05em;">
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Description (optional)</label>
+                <input type="text" name="description" placeholder="e.g. Highway 1 Pipeline Survey"
+                       style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Job
+            </button>
+        </form>
+
+        <div style="background: rgba(0,0,0,0.015); border: 1px dashed var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;"><i class="fa-solid fa-file-csv"></i> CSV Job Numbers Import</div>
+            <form action="/admin/jobnumbers/import" method="POST" enctype="multipart/form-data" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <input type="file" name="csv_file" accept=".csv" required style="font-size: 0.85rem; padding: 0.35rem 0.5rem; border: 1.5px solid var(--border); border-radius: 6px; background: var(--surface);">
+                <button type="submit" class="btn btn-accent btn-sm">
+                    <i class="fa-solid fa-upload"></i> Import CSV
+                </button>
+                <a href="/admin/jobnumbers/template" class="btn btn-sm btn-outline" style="text-decoration: none; padding: 0.45rem 0.8rem; border-radius: 6px; font-size: 0.82rem; font-weight: 600;">
+                    <i class="fa-solid fa-download"></i> Download Template
+                </a>
+            </form>
+        </div>
+        <% 
+            const pendingJobs = jobNumbers.filter(j => j.pending_confirmation);
+            const activeJobs  = jobNumbers.filter(j => !j.pending_confirmation);
+        %>
+
+        <% if (pendingJobs.length > 0) { %>
+        <div style="margin-bottom: 1.5rem; border: 1.5px solid var(--warning); border-radius: 8px; overflow: hidden; background: rgba(243,156,18,0.04);">
+            <div style="background: var(--warning); color: #fff; padding: 0.6rem 1rem; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fa-solid fa-triangle-exclamation"></i> Job Numbers Awaiting Confirmation</span>
+                <span class="badge" style="background: #fff; color: var(--warning); font-size: 0.75rem;"><%= pendingJobs.length %> pending</span>
+            </div>
+            <div style="padding: 1rem;">
+                <div class="table-wrap">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding: 0.5rem;">Job #</th>
+                                <th style="text-align: left; padding: 0.5rem;">Submission Details</th>
+                                <th style="text-align: right; padding: 0.5rem;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% pendingJobs.forEach(j => { %>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 0.5rem;"><span class="card-id-badge" style="font-size:.78rem; background: var(--warning-light); color: var(--warning); border-color: var(--warning);"><i class="fa-solid fa-briefcase"></i> <%= j.job_number %></span></td>
+                                <td style="color:var(--text-muted); font-size:0.85rem; padding: 0.5rem;"><%= j.description %></td>
+                                <td style="text-align:right; padding: 0.5rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                    <form action="/admin/jobnumbers/confirm/<%= j.id %>" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm" style="background: #2ecc71; color: #fff; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                            <i class="fa-solid fa-check"></i> Confirm
+                                        </button>
+                                    </form>
+                                    <form action="/admin/jobnumbers/reject/<%= j.id %>" method="POST" style="display:inline;"
+                                          onsubmit="return confirm('Reject and delete <%= j.job_number %>?');">
+                                        <button type="submit" class="btn btn-sm" style="background: var(--danger-light); color: var(--danger); border: none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                            <i class="fa-solid fa-xmark"></i> Reject
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 0.75rem;"><i class="fa-solid fa-circle-check" style="color: var(--primary);"></i> Confirmed / Active Job Numbers</h3>
+        <% if (activeJobs && activeJobs.length > 0) { %>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Job #</th><th>Description</th><th style="text-align:right;">Action</th></tr></thead>
+                <tbody>
+                    <% activeJobs.forEach(j => { %>
+                    <tr>
+                        <td><span class="card-id-badge" style="font-size:.78rem;"><i class="fa-solid fa-briefcase"></i> <%= j.job_number %></span></td>
+                        <td style="color:var(--text-muted);"><%= j.description || '—' %></td>
+                        <td style="text-align:right;">
+                            <form action="/admin/jobnumbers/remove/<%= j.id %>" method="POST" style="display:inline;"
+                                  onsubmit="return confirm('Remove <%= j.job_number %>?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;">
+                                    <i class="fa-solid fa-trash-can"></i> Remove
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;">
+            <i class="fa-solid fa-briefcase" style="font-size:2rem; color:var(--text-muted); opacity:.3;"></i>
+            <p style="margin-top:.5rem;">No active job numbers yet. Add one above to enable grouping on expense forms and exports.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- ═══ REGISTRATION CARD WHITELIST ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-key"></i> Registration Card Whitelist</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= whitelist.length %> authorized card(s)</span>
+    </div>
+    <div class="panel-body">
+        <p style="font-size:0.83rem; color:var(--text-muted); margin-bottom:1rem;">
+            <i class="fa-solid fa-circle-info" style="color:var(--primary);"></i>
+            When cards are listed here, only users whose card last 4 digits match can register.
+            If the list is <strong>empty</strong>, anyone can register. Suspended cards cannot be used for registration or credit card expense submissions.
+        </p>
+
+        <!-- Add card form -->
+        <form action="/admin/whitelist/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Card Last 4 Digits</label>
+                <input type="text" name="card_digits" maxlength="4" pattern="\d{4}" required
+                       placeholder="e.g. 4821"
+                       style="width:120px; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:1rem; letter-spacing:.15em; font-weight:700;">
+            </div>
+            <div style="flex:1; min-width:160px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Label / Employee Name (optional)</label>
+                <input type="text" name="label" placeholder="e.g. John Smith - Company Card"
+                       style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Expiry Date (optional)</label>
+                <input type="date" name="expiry_date"
+                       style="padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Card
+            </button>
+        </form>
+
+        <!-- Whitelist table -->
+        <% if (whitelist && whitelist.length > 0) { %>
+        <% 
+            const todayStr = new Date().toISOString().split('T')[0];
+            const in60Days = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const expiringCards = whitelist.filter(w => w.expiry_date && w.expiry_date >= todayStr && w.expiry_date <= in60Days);
+        %>
+
+        <% if (expiringCards.length > 0) { %>
+        <div class="alert alert-warning" style="margin-bottom: 1rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span><strong>Upcoming Expiries (Next 60 Days):</strong> 
+                <% expiringCards.forEach((c, idx) => { %>
+                    ****<%= c.card_digits %> (<%= c.label || 'No Name' %>) expires on <%= c.expiry_date %><%= idx < expiringCards.length - 1 ? ', ' : '' %>
+                <% }) %>
+            </span>
+        </div>
+        <% } %>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Card (last 4)</th>
+                        <th>Label</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                        <th>Added</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% whitelist.forEach(w => { %>
+                    <tr style="<%= w.status === 'suspended' ? 'opacity: 0.65; background: rgba(0,0,0,0.02);' : '' %>">
+                        <td>
+                            <span class="card-id-badge" style="<%= w.status === 'suspended' ? 'border-color: var(--danger); color: var(--danger); background: var(--danger-light);' : '' %>">
+                                <i class="fa-solid fa-credit-card"></i> ****<%= w.card_digits %>
+                            </span>
+                        </td>
+                        <td style="color:var(--text-muted);"><%= w.label || '—' %></td>
+                        <td>
+                            <% if (w.expiry_date) { %>
+                                <span style="font-weight: 600; color: <%= w.expiry_date <= todayStr ? 'var(--danger)' : w.expiry_date <= in60Days ? 'var(--warning)' : 'var(--text-muted)' %>">
+                                    <%= w.expiry_date %>
+                                    <% if (w.expiry_date <= todayStr) { %> (Expired) <% } %>
+                                </span>
+                            <% } else { %>
+                                <span style="color: var(--text-light); font-style: italic;">No Expiry</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <span class="badge" style="background: <%= w.status === 'suspended' ? 'var(--danger-light); color: var(--danger);' : 'var(--primary-light); color: var(--primary);' %>">
+                                <%= w.status %>
+                            </span>
+                        </td>
+                        <td style="color:var(--text-muted); font-size:0.8rem;"><%= (w.created_at || '').toString().split('T')[0] %></td>
+                        <td style="text-align:right;">
+                            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                <form action="/admin/whitelist/suspend/<%= w.id %>" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm" style="background: <%= w.status === 'suspended' ? '#2ecc71' : 'var(--warning-light)' %>; color: <%= w.status === 'suspended' ? '#fff' : 'var(--warning)' %>; border:none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                        <i class="fa-solid <%= w.status === 'suspended' ? 'fa-play' : 'fa-pause' %>"></i> <%= w.status === 'suspended' ? 'Activate' : 'Suspend' %>
+                                    </button>
+                                </form>
+                                <form action="/admin/whitelist/remove/<%= w.id %>" method="POST" style="display:inline;"
+                                      onsubmit="return confirm('Remove ****<%= w.card_digits %> from whitelist?');">
+                                    <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                        <i class="fa-solid fa-trash-can"></i> Remove
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding: 1.5rem 0;">
+            <i class="fa-solid fa-lock-open" style="font-size:2rem; color:var(--warning);"></i>
+            <p style="margin-top:.5rem;">No cards in whitelist — <strong>open registration</strong> (anyone can sign up).<br>Add a card above to restrict registration.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- ═══ DIVISION MANAGEMENT ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-building"></i> Division Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= divisions.length %> division(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/divisions/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div style="flex: 1; min-width: 200px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Division Name</label>
+                <input type="text" name="name" required placeholder="e.g. Pipeline Division"
+                       style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Division
+            </button>
+        </form>
+
+        <% if (divisions && divisions.length > 0) { %>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Division Name</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% divisions.forEach(d => { %>
+                    <tr>
+                        <td><strong><%= d.name %></strong></td>
+                        <td style="text-align:right;">
+                            <form action="/admin/divisions/delete/<%= d.id %>" method="POST" style="display:inline;"
+                                  onsubmit="return confirm('Delete division <%= d.name %>? This does not delete associated users.');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                    <i class="fa-solid fa-trash-can"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding: 1.5rem 0;">
+            <i class="fa-solid fa-building" style="font-size:2rem; color:var(--text-light); opacity:0.5;"></i>
+            <p style="margin-top:.5rem;">No divisions created yet. Add one above to organize your users.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- ═══ REIMBURSEMENT TYPES & WBS CODES ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-receipt"></i> Reimbursement Expense Types &amp; WBS Codes</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= reimbursementTypes.length %> type(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/reimbursement-types/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div style="flex: 1; min-width: 180px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Expense Type Name</label>
+                <input type="text" name="name" required placeholder="e.g. Fuel / Mileage"
+                       style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width: 150px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">WBS Code (optional)</label>
+                <input type="text" name="wbs_code" placeholder="e.g. WBS-204"
+                       style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Type
+            </button>
+        </form>
+
+        <% if (reimbursementTypes && reimbursementTypes.length > 0) { %>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Expense Type</th>
+                        <th>Associated WBS Code</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% reimbursementTypes.forEach(t => { %>
+                    <tr>
+                        <td><strong><%= t.name %></strong></td>
+                        <td><span class="card-id-badge" style="font-size:.78rem;"><%= t.wbs_code || '—' %></span></td>
+                        <td style="text-align:right;">
+                            <form action="/admin/reimbursement-types/delete/<%= t.id %>" method="POST" style="display:inline;"
+                                  onsubmit="return confirm('Delete reimbursement type <%= t.name %>?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                    <i class="fa-solid fa-trash-can"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding: 1.5rem 0;">
+            <i class="fa-solid fa-receipt" style="font-size:2rem; color:var(--text-light); opacity:0.5;"></i>
+            <p style="margin-top:.5rem;">No reimbursement expense types configured yet.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- ═══ GAS CARD MANAGEMENT ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-gas-pump"></i> Gas Card Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= gasCards.length %> gas card(s)</span>
+    </div>
+    <div class="panel-body">
+        <!-- Form to Add Gas Card -->
+        <form action="/admin/gas-cards/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.5rem; background:var(--background-light); padding:1rem; border-radius:10px; border:1px solid var(--border-light);">
+            <div style="flex: 1; min-width: 150px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Card Number</label>
+                <input type="text" name="card_number" required placeholder="e.g. 7004123456789012"
+                       style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width: 130px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Card Type</label>
+                <select name="card_type" required style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; background:var(--surface);">
+                    <option value="Shell">Shell</option>
+                    <option value="Esso">Esso</option>
+                    <option value="Petro-Canada">Petro-Canada</option>
+                    <option value="Husky">Husky</option>
+                    <option value="Generic">Generic</option>
+                </select>
+            </div>
+            <div style="width: 110px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Expiry Date</label>
+                <input type="text" name="expiry_date" required placeholder="e.g. 12/28"
+                       style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width: 130px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Truck Assigned</label>
+                <input type="text" name="truck_assigned" placeholder="e.g. Truck 14"
+                       style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width: 180px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Assigned User</label>
+                <select name="user_id" style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; background:var(--surface);">
+                    <option value="">Unassigned</option>
+                    <% users.forEach(u => { %>
+                    <option value="<%= u.id %>"><%= u.first_name %> <%= u.last_name %> (<%= u.username %>)</option>
+                    <% }) %>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Gas Card
+            </button>
+        </form>
+
+        <!-- Gas Cards Table -->
+        <% if (gasCards && gasCards.length > 0) { %>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Card Number</th>
+                        <th>Type</th>
+                        <th>Expiry</th>
+                        <th>Truck Assigned</th>
+                        <th>Assigned User</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% gasCards.forEach(gc => { %>
+                    <tr>
+                        <td>
+                            <strong>•••• •••• •••• <%= gc.card_number.slice(-4) %></strong>
+                            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">Full number ends in <%= gc.card_number.slice(-4) %></span>
+                        </td>
+                        <td><span class="card-id-badge" style="font-size:.78rem;"><%= gc.card_type %></span></td>
+                        <td><%= gc.expiry_date %></td>
+                        <td><%= gc.truck_assigned || '—' %></td>
+                        <td>
+                            <!-- Form to Assign User -->
+                            <form action="/admin/gas-cards/assign/<%= gc.id %>" method="POST" style="margin:0; padding:0;">
+                                <select name="user_id" onchange="this.form.submit()" style="padding:.25rem .45rem; border:1px solid var(--border); border-radius:6px; font-size:.85rem; background:var(--surface);">
+                                    <option value="">Unassigned</option>
+                                    <% users.forEach(u => { %>
+                                    <option value="<%= u.id %>" <%= gc.user_id === u.id ? 'selected' : '' %>><%= u.first_name %> <%= u.last_name %></option>
+                                    <% }) %>
+                                </select>
+                            </form>
+                        </td>
+                        <td>
+                            <!-- Status Toggle -->
+                            <form action="/admin/gas-cards/toggle/<%= gc.id %>" method="POST" style="margin:0; padding:0;">
+                                <% if (gc.active === 1) { %>
+                                <button type="submit" class="badge" style="background:var(--success-light); color:var(--success); border:none; cursor:pointer; font-weight:600;" title="Click to suspend">
+                                    <i class="fa-solid fa-circle-check"></i> Active
+                                </button>
+                                <% } else { %>
+                                <button type="submit" class="badge" style="background:var(--danger-light); color:var(--danger); border:none; cursor:pointer; font-weight:600;" title="Click to activate">
+                                    <i class="fa-solid fa-circle-xmark"></i> Suspended
+                                </button>
+                                <% } %>
+                            </form>
+                        </td>
+                        <td style="text-align:right;">
+                            <form action="/admin/gas-cards/delete/<%= gc.id %>" method="POST" style="display:inline;"
+                                  onsubmit="return confirm('Delete gas card ending in <%= gc.card_number.slice(-4) %>?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                    <i class="fa-solid fa-trash-can"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding: 1.5rem 0;">
+            <i class="fa-solid fa-gas-pump" style="font-size:2rem; color:var(--text-light); opacity:0.5;"></i>
+            <p style="margin-top:.5rem;">No gas cards configured yet.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

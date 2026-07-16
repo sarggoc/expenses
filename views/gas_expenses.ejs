@@ -1,0 +1,429 @@
+<%- include('partials/header', { title: 'Gas Card Expenses' }) %>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<div class="dashboard-layout-full" style="width: 100%; margin-top: 1rem; margin-bottom: 2rem;">
+
+    <% if (locals.activeView === 'cards') { %>
+        <!-- ═══ ACTIVE GAS CARDS VIEW ═══ -->
+        <div class="panel" style="max-width: 650px; margin: 0 auto;">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fa-solid fa-gas-pump"></i> Active Gas Cards</h2>
+            </div>
+            <div class="panel-body">
+                <% if (myGasCards && myGasCards.length > 0) { %>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <% myGasCards.forEach(card => { %>
+                            <div style="background: var(--background-light); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-light);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                                    <span class="card-id-badge" style="font-weight: 700; font-size: 0.85rem;">
+                                        <i class="fa-solid fa-credit-card"></i> •••• <%= card.card_number.slice(-4) %>
+                                    </span>
+                                    <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.7rem; font-weight: 600;">
+                                        <%= card.card_type %>
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.5rem;">
+                                    <span>Expiry:</span> <strong><%= card.expiry_date %></strong>
+                                    <span>Truck:</span> <strong><%= card.truck_assigned || 'None' %></strong>
+                                    <% if (card.user_name) { %>
+                                        <span>Assigned to:</span> <strong><%= card.user_name %></strong>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state" style="padding: 2rem 0; text-align: center;">
+                        <i class="fa-solid fa-credit-card" style="font-size: 2.5rem; color: var(--text-light); opacity: 0.5;"></i>
+                        <p style="margin-top: 0.5rem; font-size: 0.88rem;">No active gas cards assigned.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+    <% } else if (locals.activeView === 'add-form') { %>
+        <!-- ═══ ADD GAS EXPENSE FORM VIEW ═══ -->
+        <div class="panel" style="max-width: 650px; margin: 0 auto;">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fa-solid fa-circle-plus"></i> Add Gas Expense</h2>
+            </div>
+            <div class="panel-body">
+                <% if (myGasCards && myGasCards.length > 0) { %>
+                    <form action="/gas-expenses/add" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 0.875rem;">
+                        
+                        <div class="form-group">
+                            <label for="gas_card_id">Select Gas Card <span class="req">*</span></label>
+                            <select id="gas_card_id" name="gas_card_id" required>
+                                <% myGasCards.forEach(card => { %>
+                                    <option value="<%= card.id %>">•••• <%= card.card_number.slice(-4) %> (<%= card.card_type %><% if (card.truck_assigned) { %> - <%= card.truck_assigned %><% } %>)</option>
+                                <% }) %>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="store_name">Store / Vendor Name <span class="req">*</span></label>
+                            <input type="text" id="store_name" name="store_name" required placeholder="e.g. Shell" autocomplete="off" />
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <div class="form-group">
+                                <label for="transaction_id">Transaction ID / Reference <span class="req">*</span></label>
+                                <input type="text" id="transaction_id" name="transaction_id" required placeholder="e.g. TXN-998312" autocomplete="off" />
+                            </div>
+                            <div class="form-group">
+                                <label for="date">Transaction Date <span class="req">*</span></label>
+                                <input type="date" id="date" name="date" required value="<%= new Date().toISOString().split('T')[0] %>" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="job_number">Job Number <span style="color:var(--text-light);font-weight:400;"> (optional)</span></label>
+                            <% if (jobNumbers && jobNumbers.length > 0) { %>
+                                <select id="job_number" name="job_number" onchange="toggleManualJob(this.value)">
+                                    <option value="">— Select Job #</option>
+                                    <% jobNumbers.forEach(j => { %>
+                                        <option value="<%= j.job_number %>"><%= j.job_number %><% if (j.description) { %> — <%= j.description %><% } %></option>
+                                    <% }) %>
+                                    <option value="__manual__">✏️ Enter manually…</option>
+                                </select>
+                                <input type="text" id="job_number_manual" name="job_number_manual" placeholder="Type job number…" style="display:none; margin-top: 0.4rem;" autocomplete="off" />
+                            <% } else { %>
+                                <input type="text" id="job_number_manual" name="job_number_manual" placeholder="JOB-1002" autocomplete="off" />
+                            <% } %>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <div class="form-group">
+                                <label for="net_amount">Amount (Pre-Tax) <span class="req">*</span></label>
+                                <input type="number" step="0.01" id="net_amount" name="net_amount" required placeholder="0.00" style="width: 100%;" oninput="calculateTotal()" />
+                            </div>
+                            <div class="form-group">
+                                <label for="tax_amount">Tax Amount</label>
+                                <input type="number" step="0.01" id="tax_amount" name="tax_amount" placeholder="0.00" style="width: 100%;" oninput="calculateTotal()" />
+                            </div>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <div class="form-group">
+                                <label for="fees_amount">Fees Amount</label>
+                                <input type="number" step="0.01" id="fees_amount" name="fees_amount" placeholder="0.00" style="width: 100%;" oninput="calculateTotal()" />
+                            </div>
+                            <div class="form-group">
+                                <label for="liters_in_tank">Liters Purchased</label>
+                                <input type="number" step="0.01" id="liters_in_tank" name="liters_in_tank" placeholder="0.00" style="width: 100%;" />
+                            </div>
+                        </div>
+
+                        <div style="background: var(--background); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px dashed var(--border); font-size: 0.82rem; text-align: center;">
+                            Total Amount: <strong style="color: var(--primary); font-size: 1.05rem;">$<span id="calculated_total">0.00</span></strong>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description">Description / Notes</label>
+                            <textarea id="description" name="description" rows="2" placeholder="e.g. Fuel for Truck 14..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="receipt_photo">Receipt Photo <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                            <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="margin-top: 0.25rem;">
+                            <i class="fa-solid fa-paper-plane"></i> Submit Gas Expense
+                        </button>
+                    </form>
+                <% } else { %>
+                    <div class="empty-state" style="padding: 2rem 0; text-align: center;">
+                        <i class="fa-solid fa-circle-exclamation" style="font-size: 2.5rem; color: var(--warning); opacity: 0.8;"></i>
+                        <p style="margin-top: 0.5rem; font-size: 0.88rem;">You must have an active gas card to add gas expenses.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+    <% } else { %>
+        <!-- ═══ GAS EXPENSES HISTORY VIEW (Default) ═══ -->
+        <div class="panel" style="min-height: 500px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <h2 class="panel-title"><i class="fa-solid fa-receipt"></i> Gas Expenses Audit &amp; History</h2>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);"><%= gasExpenses.length %> expense(s)</span>
+                    <span class="mobile-only" style="font-size: 0.72rem; color: var(--text-muted); background: var(--background-light); padding: 0.2rem 0.5rem; border-radius: 4px;">
+                        <i class="fa-solid fa-left-right"></i> Scroll table
+                    </span>
+                </div>
+            </div>
+            
+            <div class="panel-body">
+                <% if (gasExpenses && gasExpenses.length > 0) { %>
+                    <div class="table-wrap">
+                        <table id="gasExpensesTable">
+                            <thead>
+                                <tr>
+                                    <% if (user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm') { %>
+                                        <th onclick="sortTable('gasExpensesTable', 0, this, 'text')" style="cursor: pointer; user-select: none;">
+                                            User <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
+                                        </th>
+                                    <% } %>
+                                    <th onclick="sortTable('gasExpensesTable', <%= user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm' ? 1 : 0 %>, this, 'text')" style="cursor: pointer; user-select: none;">
+                                        Card Details <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
+                                    </th>
+                                    <th onclick="sortTable('gasExpensesTable', <%= user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm' ? 2 : 1 %>, this, 'text')" style="cursor: pointer; user-select: none;">
+                                        Store / Vendor <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
+                                    </th>
+                                    <th onclick="sortTable('gasExpensesTable', <%= user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm' ? 3 : 2 %>, this, 'text')" style="cursor: pointer; user-select: none;">
+                                        Date <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
+                                    </th>
+                                    <th onclick="sortTable('gasExpensesTable', <%= user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm' ? 4 : 3 %>, this, 'text')" style="cursor: pointer; user-select: none;">
+                                        Job # <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
+                                    </th>
+                                    <th style="text-align: right;">Net</th>
+                                    <th style="text-align: right;">Tax</th>
+                                    <th style="text-align: right;">Fees</th>
+                                    <th onclick="sortTable('gasExpensesTable', <%= user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm' ? 8 : 7 %>, this, 'number')" style="cursor: pointer; user-select: none; text-align: right;">
+                                        Total <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
+                                    </th>
+                                    <th style="text-align: right;">Liters</th>
+                                    <th>Receipt</th>
+                                    <th>Status</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% gasExpenses.forEach(exp => { %>
+                                    <tr>
+                                        <% if (user.role === 'admin' || user.role === 'accounting' || user.role === 'approver' || user.role === 'pm') { %>
+                                            <td><strong><%= exp.user_name %></strong></td>
+                                        <% } %>
+                                        <td>
+                                            <div style="font-size: 0.85rem; font-weight: 600;">•••• <%= exp.card_number.slice(-4) %></div>
+                                            <div style="font-size: 0.72rem; color: var(--text-muted);"><%= exp.card_type %></div>
+                                        </td>
+                                        <td>
+                                            <div style="font-size: 0.85rem; font-weight: 600;"><%= exp.store_name %></div>
+                                            <div style="font-size: 0.7rem; color: var(--text-muted);"><%= exp.transaction_id %></div>
+                                        </td>
+                                        <td><%= exp.date %></td>
+                                        <td><%= exp.job_number || '—' %></td>
+                                        <td style="text-align: right;">$<%= parseFloat(exp.net_amount || 0).toFixed(2) %></td>
+                                        <td style="text-align: right;">$<%= parseFloat(exp.tax_amount || 0).toFixed(2) %></td>
+                                        <td style="text-align: right;">$<%= parseFloat(exp.fees_amount || 0).toFixed(2) %></td>
+                                        <td style="text-align: right; font-weight: 700; color: var(--text);">$<%= parseFloat(exp.total_amount || 0).toFixed(2) %></td>
+                                        <td style="text-align: right;"><%= parseFloat(exp.liters_in_tank || 0).toFixed(1) %> L</td>
+                                        <td>
+                                            <% if (exp.receipt_photo_path) { %>
+                                                <button class="btn btn-sm btn-outline" style="padding: 0.2rem 0.4rem; font-size: 0.75rem; height: auto;" onclick="viewReceipt('<%= exp.receipt_photo_path %>')">
+                                                    <i class="fa-solid fa-receipt"></i> View
+                                                </button>
+                                            <% } else { %>
+                                                <form action="/gas-expenses/upload-photo/<%= exp.id %>" method="POST" enctype="multipart/form-data" style="margin: 0; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    <label for="receipt_later_<%= exp.id %>" class="btn btn-sm btn-outline" style="padding: 0.2rem 0.4rem; font-size: 0.72rem; height: auto; cursor: pointer; margin: 0;">
+                                                        <i class="fa-solid fa-plus"></i> Photo Later
+                                                    </label>
+                                                    <input type="file" id="receipt_later_<%= exp.id %>" name="receipt_photo" accept="image/*" style="display: none;" onchange="this.form.submit()" />
+                                                </form>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (exp.status === 'valid') { %>
+                                                <span class="badge badge-approved"><i class="fa-solid fa-circle-check"></i> Valid</span>
+                                            <% } else if (exp.status === 'contested') { %>
+                                                <span class="badge badge-rejected" style="cursor: pointer;" onclick="alert('Contested Reason: <%= exp.contested_reason %>')" title="Click to view contested reason">
+                                                    <i class="fa-solid fa-triangle-exclamation"></i> Contested
+                                                </span>
+                                            <% } else if (exp.status === 'rebutted') { %>
+                                                <span class="badge badge-pending" style="background: var(--primary-light); color: var(--primary); cursor: pointer;" onclick="alert('Rebuttal: <%= exp.rebuttal_reason %>\n\nContested Reason: <%= exp.contested_reason %>')" title="Click to view rebuttal details">
+                                                    <i class="fa-solid fa-reply"></i> Rebutted
+                                                </span>
+                                            <% } %>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">
+                                                <!-- User Action: Rebut -->
+                                                <% if (exp.status === 'contested' && exp.user_id === user.id) { %>
+                                                    <button class="btn btn-sm btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="openRebutModal('<%= exp.id %>', '<%= exp.contested_reason %>')">
+                                                        <i class="fa-solid fa-reply"></i> Rebut
+                                                    </button>
+                                                <% } %>
+
+                                                <!-- Admin Action: Contest / Validate -->
+                                                <% if (user.role === 'admin' || user.role === 'accounting') { %>
+                                                    <% if (exp.status === 'valid') { %>
+                                                        <button class="btn btn-sm" style="background: var(--warning-light); color: var(--warning-dark); border: none; padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="openContestModal('<%= exp.id %>')">
+                                                            <i class="fa-solid fa-ban"></i> Contest
+                                                        </button>
+                                                    <% } else if (exp.status === 'contested' || exp.status === 'rebutted') { %>
+                                                        <form action="/gas-expenses/validate/<%= exp.id %>" method="POST" style="margin: 0;">
+                                                            <button type="submit" class="btn btn-sm" style="background: var(--success-light); color: var(--success); border: none; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                                                <i class="fa-solid fa-check"></i> Validate
+                                                            </button>
+                                                        </form>
+                                                    <% } %>
+                                                <% } %>
+
+                                                <!-- Delete (Always available to owner/admin if pending/valid) -->
+                                                <% if (exp.user_id === user.id || user.role === 'admin' || user.role === 'accounting') { %>
+                                                    <form action="/gas-expenses/delete/<%= exp.id %>" method="POST" style="margin: 0;" onsubmit="return confirm('Delete this gas card expense record?');">
+                                                        <button type="submit" class="btn btn-sm" style="background: var(--danger-light); color: var(--danger); border: none; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                                            <i class="fa-solid fa-trash-can"></i>
+                                                        </button>
+                                                    </form>
+                                                <% } %>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state" style="padding: 5rem 0;">
+                        <i class="fa-solid fa-gas-pump" style="font-size: 3rem; opacity: 0.2; color: var(--primary); margin-bottom: 1rem; display: block;"></i>
+                        <p style="color: var(--text-muted);">No gas expenses recorded yet.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    <% } %>
+</div>
+
+<!-- ═══ USER REBUTTAL MODAL ═══ -->
+<div id="rebutModal" class="modal" role="dialog" aria-modal="true" aria-label="Rebut Expense">
+    <button onclick="closeRebutModal()" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    <div class="panel" style="width: 100%; max-width: 450px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-reply"></i> Submit Expense Rebuttal</h2>
+        </div>
+        <div class="panel-body">
+            <div style="background: var(--danger-light); color: var(--danger); padding: 0.75rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 1rem;">
+                <strong>Contested Reason:</strong> <span id="rebutModalContestedReason"></span>
+            </div>
+            <form id="rebutForm" action="" method="POST">
+                <div class="form-group">
+                    <label for="rebuttal_reason">Provide your justification / rebuttal <span class="req">*</span></label>
+                    <textarea id="rebuttal_reason" name="rebuttal_reason" required rows="4" placeholder="Explain why this expense is valid..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.75rem;">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Rebuttal
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ADMIN CONTEST MODAL ═══ -->
+<div id="contestModal" class="modal" role="dialog" aria-modal="true" aria-label="Contest Expense">
+    <button onclick="closeContestModal()" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    <div class="panel" style="width: 100%; max-width: 450px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-ban"></i> Contest Gas Expense</h2>
+        </div>
+        <div class="panel-body">
+            <form id="contestForm" action="" method="POST">
+                <div class="form-group">
+                    <label for="contested_reason">Reason for contesting this charge <span class="req">*</span></label>
+                    <textarea id="contested_reason" name="contested_reason" required rows="4" placeholder="e.g. Unusual purchase / missing log details..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.75rem; background: var(--warning); color: #000; border-color: var(--warning);">
+                    <i class="fa-solid fa-circle-exclamation"></i> Contest Charge
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Modal -->
+<div id="receiptModal" class="modal" role="dialog" aria-modal="true" aria-label="Receipt Image">
+    <button onclick="closeReceiptModal()" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    <div style="background:var(--surface); padding:1rem; border-radius:var(--radius); text-align:center;">
+        <img id="receiptModalImg" src="" alt="Receipt Photo" style="max-width:100%; max-height:80vh; object-fit:contain; border-radius:var(--radius-sm);" />
+    </div>
+</div>
+
+<!-- Mobile styles support -->
+<style>
+    .mobile-only {
+        display: none !important;
+    }
+    @media (max-width: 768px) {
+        .mobile-only {
+            display: inline-block !important;
+        }
+    }
+</style>
+
+<script>
+    function calculateTotal() {
+        const netInput = document.getElementById('net_amount');
+        const taxInput = document.getElementById('tax_amount');
+        const feesInput = document.getElementById('fees_amount');
+        const totalSpan = document.getElementById('calculated_total');
+
+        if (!netInput || !totalSpan) return;
+
+        const net = parseFloat(netInput.value || 0);
+        const tax = parseFloat(taxInput ? taxInput.value || 0 : 0);
+        const fees = parseFloat(feesInput ? feesInput.value || 0 : 0);
+        
+        const total = net + tax + fees;
+        totalSpan.textContent = total.toFixed(2);
+    }
+
+    function openRebutModal(expId, contestedReason) {
+        const modal = document.getElementById('rebutModal');
+        const form = document.getElementById('rebutForm');
+        const reasonSpan = document.getElementById('rebutModalContestedReason');
+        
+        if (!modal || !form || !reasonSpan) return;
+
+        reasonSpan.textContent = contestedReason;
+        form.action = '/gas-expenses/rebut/' + expId;
+        modal.classList.add('open');
+    }
+
+    function closeRebutModal() {
+        const modal = document.getElementById('rebutModal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    function openContestModal(expId) {
+        const modal = document.getElementById('contestModal');
+        const form = document.getElementById('contestForm');
+        
+        if (!modal || !form) return;
+
+        form.action = '/gas-expenses/contest/' + expId;
+        modal.classList.add('open');
+    }
+
+    function closeContestModal() {
+        const modal = document.getElementById('contestModal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    function viewReceipt(path) {
+        const modal = document.getElementById('receiptModal');
+        const img = document.getElementById('receiptModalImg');
+        if (modal && img) {
+            img.src = path;
+            modal.classList.add('open');
+        }
+    }
+
+    function closeReceiptModal() {
+        const modal = document.getElementById('receiptModal');
+        if (modal) modal.classList.remove('open');
+    }
+</script>
+
+<%- include('partials/footer') %>

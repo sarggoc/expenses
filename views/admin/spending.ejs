@@ -1,0 +1,134 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-credit-card"></i> Employee <span>Spending Overview</span></h1>
+        <p class="admin-page-sub">View budget consumption, edit roles, and assign custom spending limits per card/user.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<div class="panel">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-users"></i> Employee Spend &amp; Card Limits</h2>
+        <span style="font-size: 0.8rem; color: var(--text-muted);"><%= users.length %> employee(s) listed</span>
+    </div>
+    <div class="panel-body">
+        <% if (users && users.length > 0) { %>
+        <div class="user-cards-grid" style="grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.5rem;">
+            <% users.forEach(u => { %>
+            <%
+                const approved = parseFloat(u.stats.approved || 0);
+                const pending  = parseFloat(u.stats.pending || 0);
+                const spent    = approved + pending;
+                const limit    = u.stats.limit;
+                const pct      = limit > 0 ? Math.min(100, (spent / limit) * 100) : null;
+                const remaining = limit > 0 ? Math.max(0, limit - spent) : null;
+                const hasCustomLimit = u.spending_limit !== null && u.spending_limit > 0;
+            %>
+            <div class="user-card-item" style="display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; border-left: 4px solid <%= hasCustomLimit ? 'var(--warning)' : 'var(--primary)' %>;">
+                <div>
+                    <div class="ucf-head">
+                        <div class="ucf-name" style="font-size: 1.05rem;">
+                            <%= u.first_name %> <%= u.last_name %>
+                            <% if (hasCustomLimit) { %>
+                                <span class="badge" style="background: var(--warning); color: #fff; font-size: 0.65rem; margin-left: 0.35rem; padding: 0.15rem 0.35rem;"><i class="fa-solid fa-shield"></i> Custom Limit</span>
+                            <% } %>
+                        </div>
+                        <span class="badge badge-<%= u.role %>"><%= u.role %></span>
+                    </div>
+
+                    <div class="ucf-row">
+                        <span><strong>@<%= u.username %></strong> &middot; <%= u.email %></span>
+                        
+                        <!-- Groups list -->
+                        <div style="margin-top: 0.25rem;">
+                            <strong style="color: var(--text-muted); font-size: 0.75rem;">Groups:</strong>
+                            <% if (u.groups && u.groups.length > 0) { %>
+                                <% u.groups.forEach(g => { %>
+                                    <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.65rem; margin-right: 0.2rem;"><%= g %></span>
+                                <% }) %>
+                            <% } else { %>
+                                <span style="font-size: 0.75rem; color: var(--text-light); font-style: italic;">None</span>
+                            <% } %>
+                        </div>
+
+                        <span style="margin-top: 0.5rem; display: block;">
+                            <strong>Card Ref:</strong>
+                            <span class="card-id-badge" style="margin-top: 0.25rem; font-size: 0.8rem; display: inline-flex;">
+                                <i class="fa-solid fa-credit-card"></i>
+                                <%= u.card_last_digits %>
+                            </span>
+                        </span>
+                    </div>
+
+                    <!-- Spending breakdown -->
+                    <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
+                        <div style="display:flex; justify-content:space-between; font-size:.78rem; margin-bottom:.35rem;">
+                            <span style="color:var(--accent-dark); font-weight:600;"><i class="fa-solid fa-circle-check"></i> Approved: $<%= approved.toFixed(2) %></span>
+                            <span style="color:var(--warning); font-weight:600;"><i class="fa-solid fa-clock"></i> Pending: $<%= pending.toFixed(2) %></span>
+                        </div>
+                        <% if (limit > 0) { %>
+                        <div style="background:var(--border-light); border-radius:99px; height:8px; overflow:hidden; margin-bottom:.35rem;">
+                            <div style="background:<%= pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warning)' : 'var(--accent)' %>; width:<%= pct.toFixed(1) %>%; height:100%; border-radius:99px; transition:width .4s ease;"></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:.75rem; color:var(--text-muted);">
+                            <span>$<%= spent.toFixed(2) %> of $<%= limit.toFixed(2) %></span>
+                            <span style="color:<%= remaining <= 0 ? 'var(--danger)' : 'var(--text-muted)' %>; font-weight:600;">
+                                Remaining: $<%= remaining.toFixed(2) %>
+                            </span>
+                        </div>
+                        <% } else { %>
+                        <div style="font-size:.78rem; color:var(--text-muted);">Total spent: <strong>$<%= spent.toFixed(2) %></strong> <span style="font-size:.72rem;">(no limit set)</span></div>
+                        <% } %>
+                    </div>
+                </div>
+
+                <!-- Update card limit form (Only available for admins/accounting) -->
+                <% if (user.role === 'admin' || user.role === 'accounting') { %>
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
+                    <form action="/admin/user/<%= u.id %>/update" method="POST" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.7rem; display: block; margin-bottom: 0.2rem;">Card Limit ($)</label>
+                                <input type="number" name="spending_limit" min="0" step="0.01" 
+                                       value="<%= u.spending_limit !== null ? u.spending_limit : '' %>" 
+                                       placeholder="Global default"
+                                       style="font-size: 0.8rem; padding: 0.35rem 0.5rem; height: 30px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.7rem; display: block; margin-bottom: 0.2rem;">Role</label>
+                                <select name="role" style="font-size: 0.8rem; padding: 0.35rem 0.5rem; height: 30px; line-height: 1;">
+                                    <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                                    <option value="approver" <%= u.role === 'approver' ? 'selected' : '' %>>Approver</option>
+                                    <option value="accounting" <%= u.role === 'accounting' ? 'selected' : '' %>>Accounting</option>
+                                    <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-outline btn-sm btn-full" style="padding: 0.25rem; font-size: 0.75rem;">
+                            <i class="fa-solid fa-user-pen"></i> Update Card Settings
+                        </button>
+                    </form>
+                </div>
+                <% } %>
+            </div>
+            <% }) %>
+        </div>
+        <% } else { %>
+        <div class="empty-state"><i class="fa-solid fa-users"></i><p>No employees registered yet.</p></div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

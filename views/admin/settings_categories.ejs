@@ -1,0 +1,83 @@
+<%- include('../partials/header', { title: 'Expense Categories' }) %>
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-tags"></i> Expense <span>Categories</span></h1>
+        <p class="admin-page-sub">Manage reimbursement expense types, WBS codes, and company divisions.</p>
+    </div>
+</div>
+<% if (error) { %><div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span></div><% } %>
+<% if (success) { %><div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span></div><% } %>
+<div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-receipt"></i> Reimbursement Types &amp; WBS Codes</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= reimbursementTypes.length %> type(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/reimbursement-types/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div style="flex:1; min-width:180px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Expense Type Name</label>
+                <input type="text" name="name" required placeholder="e.g. Fuel / Mileage" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width:150px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">WBS Code (optional)</label>
+                <input type="text" name="wbs_code" placeholder="e.g. WBS-204" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add Type</button>
+        </form>
+        <% if (reimbursementTypes && reimbursementTypes.length > 0) { %>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Expense Type</th><th>WBS Code</th><th style="text-align:right;">Actions</th></tr></thead>
+            <tbody>
+                <% reimbursementTypes.forEach(t => { %>
+                <tr>
+                    <td><strong><%= t.name %></strong></td>
+                    <td><span class="card-id-badge" style="font-size:.78rem;"><%= t.wbs_code || '—' %></span></td>
+                    <td style="text-align:right;">
+                        <form action="/admin/reimbursement-types/delete/<%= t.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Delete <%= t.name %>?');">
+                            <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;"><i class="fa-solid fa-trash-can"></i> Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table></div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;"><i class="fa-solid fa-receipt" style="font-size:2rem; opacity:0.4;"></i><p>No reimbursement types configured yet.</p></div>
+        <% } %>
+    </div>
+</div>
+<div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-building"></i> Division Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= divisions.length %> division(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/divisions/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div style="flex:1; min-width:200px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Division Name</label>
+                <input type="text" name="name" required placeholder="e.g. Pipeline Division" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add Division</button>
+        </form>
+        <% if (divisions && divisions.length > 0) { %>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Division Name</th><th style="text-align:right;">Actions</th></tr></thead>
+            <tbody>
+                <% divisions.forEach(d => { %>
+                <tr>
+                    <td><strong><%= d.name %></strong></td>
+                    <td style="text-align:right;">
+                        <form action="/admin/divisions/delete/<%= d.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Delete <%= d.name %>?');">
+                            <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;"><i class="fa-solid fa-trash-can"></i> Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table></div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;"><i class="fa-solid fa-building" style="font-size:2rem; opacity:0.4;"></i><p>No divisions yet.</p></div>
+        <% } %>
+    </div>
+</div>
+<%- include('../partials/footer') %>

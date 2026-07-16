@@ -1,0 +1,108 @@
+<%- include('../partials/header', { title: 'Job Number Management' }) %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-briefcase"></i> Job Number <span>Management</span></h1>
+        <p class="admin-page-sub">Manage active job numbers and approve pending user-submitted ones.</p>
+    </div>
+</div>
+
+<% if (error) { %><div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span></div><% } %>
+<% if (success) { %><div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span></div><% } %>
+
+<div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-briefcase"></i> Job Number Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= jobNumbers.length %> job(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/jobnumbers/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Job Number</label>
+                <input type="text" name="job_number" required placeholder="e.g. JOB-2024"
+                       style="width:130px; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; font-weight:700; letter-spacing:.05em;">
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Description (optional)</label>
+                <input type="text" name="description" placeholder="e.g. Highway 1 Pipeline Survey"
+                       style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add Job</button>
+        </form>
+
+        <div style="background:rgba(0,0,0,0.015); border:1px dashed var(--border); border-radius:8px; padding:1rem; margin-bottom:1.5rem; display:flex; flex-direction:column; gap:0.75rem;">
+            <div style="font-weight:600; font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;"><i class="fa-solid fa-file-csv"></i> CSV Import</div>
+            <form action="/admin/jobnumbers/import" method="POST" enctype="multipart/form-data" style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                <input type="file" name="csv_file" accept=".csv" required style="font-size:0.85rem; padding:0.35rem 0.5rem; border:1.5px solid var(--border); border-radius:6px; background:var(--surface);">
+                <button type="submit" class="btn btn-accent btn-sm"><i class="fa-solid fa-upload"></i> Import CSV</button>
+                <a href="/admin/jobnumbers/template" class="btn btn-sm btn-outline" style="text-decoration:none;"><i class="fa-solid fa-download"></i> Template</a>
+            </form>
+        </div>
+
+        <%
+            const pendingJobs = jobNumbers.filter(j => j.pending_confirmation);
+            const activeJobs  = jobNumbers.filter(j => !j.pending_confirmation);
+        %>
+
+        <% if (pendingJobs.length > 0) { %>
+        <div style="margin-bottom:1.5rem; border:1.5px solid var(--warning); border-radius:8px; overflow:hidden; background:rgba(243,156,18,0.04);">
+            <div style="background:var(--warning); color:#fff; padding:0.6rem 1rem; font-weight:700; font-size:0.9rem; display:flex; align-items:center; justify-content:space-between;">
+                <span><i class="fa-solid fa-triangle-exclamation"></i> Awaiting Confirmation</span>
+                <span class="badge" style="background:#fff; color:var(--warning); font-size:0.75rem;"><%= pendingJobs.length %> pending</span>
+            </div>
+            <div style="padding:1rem;">
+                <div class="table-wrap">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead><tr><th style="text-align:left; padding:0.5rem;">Job #</th><th style="text-align:left; padding:0.5rem;">Details</th><th style="text-align:right; padding:0.5rem;">Actions</th></tr></thead>
+                        <tbody>
+                            <% pendingJobs.forEach(j => { %>
+                            <tr style="border-bottom:1px solid var(--border-light);">
+                                <td style="padding:0.5rem;"><span class="card-id-badge" style="font-size:.78rem; background:var(--warning-light); color:var(--warning); border-color:var(--warning);"><i class="fa-solid fa-briefcase"></i> <%= j.job_number %></span></td>
+                                <td style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem;"><%= j.description %></td>
+                                <td style="text-align:right; padding:0.5rem; display:flex; gap:0.5rem; justify-content:flex-end;">
+                                    <form action="/admin/jobnumbers/confirm/<%= j.id %>" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm" style="background:#2ecc71; color:#fff; border:none;"><i class="fa-solid fa-check"></i> Confirm</button>
+                                    </form>
+                                    <form action="/admin/jobnumbers/reject/<%= j.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Reject <%= j.job_number %>?');">
+                                        <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;"><i class="fa-solid fa-xmark"></i> Reject</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
+        <h3 style="font-size:0.95rem; font-weight:700; color:var(--text); margin-bottom:0.75rem;"><i class="fa-solid fa-circle-check" style="color:var(--primary);"></i> Active Job Numbers</h3>
+        <% if (activeJobs && activeJobs.length > 0) { %>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Job #</th><th>Description</th><th style="text-align:right;">Action</th></tr></thead>
+                <tbody>
+                    <% activeJobs.forEach(j => { %>
+                    <tr>
+                        <td><span class="card-id-badge" style="font-size:.78rem;"><i class="fa-solid fa-briefcase"></i> <%= j.job_number %></span></td>
+                        <td style="color:var(--text-muted);"><%= j.description || '—' %></td>
+                        <td style="text-align:right;">
+                            <form action="/admin/jobnumbers/remove/<%= j.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Remove <%= j.job_number %>?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;"><i class="fa-solid fa-trash-can"></i> Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;">
+            <i class="fa-solid fa-briefcase" style="font-size:2rem; color:var(--text-muted); opacity:.3;"></i>
+            <p style="margin-top:.5rem;">No active job numbers yet.</p>
+        </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

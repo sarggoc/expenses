@@ -1,0 +1,150 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-users-gear"></i> Groups <span>Management</span></h1>
+        <p class="admin-page-sub">Create organizational groups, assign a dedicated group approver, and manage member employees.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<!-- ═══ GROUPS OVERVIEW ═══ -->
+<div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 0.5rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0;"><i class="fa-solid fa-people-group"></i> Active Groups</h2>
+        <a href="/admin/groups/create" class="btn btn-accent btn-sm"><i class="fa-solid fa-circle-plus"></i> Create New Group</a>
+    </div>
+    
+    <!-- Active Groups List -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <% if (groups && groups.length > 0) { %>
+            <% groups.forEach(g => { %>
+                <div class="panel">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <h2 class="panel-title" style="font-size: 1.1rem; color: var(--primary);">
+                                <i class="fa-solid fa-users"></i> <%= g.name %>
+                            </h2>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;"><%= g.description || 'No description provided.' %></p>
+                        </div>
+                        
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <form action="/admin/groups/delete/<%= g.id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete the group \'<%= g.name %>\'?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;">
+                                    <i class="fa-solid fa-trash-can"></i> Delete Group
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-body">
+                        <!-- Group details & members -->
+                        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start;">
+                            
+                            <!-- Left: Manage Approver & Add Member -->
+                            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                                <!-- Approver management -->
+                                <div style="background: var(--surface-2); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                                    <h4 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                        <i class="fa-solid fa-user-tie"></i> Group Approver
+                                    </h4>
+                                    <div style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 0.6rem;">
+                                        <%= g.approver_name || '— Unassigned —' %>
+                                    </div>
+                                    <form action="/admin/groups/<%= g.id %>/approver" method="POST" style="display: flex; gap: 0.35rem;">
+                                        <select name="approver_id" style="font-size: 0.78rem; padding: 0.25rem; height: 30px; flex: 1;">
+                                            <option value="">— Unassign —</option>
+                                            <% approvers.forEach(a => { %>
+                                                <option value="<%= a.id %>" <%= g.approver_id == a.id ? 'selected' : '' %>><%= a.first_name %> <%= a.last_name %></option>
+                                            <% }) %>
+                                        </select>
+                                        <button type="submit" class="btn btn-outline btn-sm" style="height: 30px; padding: 0 0.5rem; font-size: 0.75rem;">Set</button>
+                                    </form>
+                                </div>
+                                
+                                <!-- Add Member -->
+                                <div style="background: var(--surface-2); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                                    <h4 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                        <i class="fa-solid fa-user-plus"></i> Add Employee Member
+                                    </h4>
+                                    <form action="/admin/groups/<%= g.id %>/members/add" method="POST" style="display: flex; gap: 0.35rem;">
+                                        <select name="user_id" required style="font-size: 0.78rem; padding: 0.25rem; height: 30px; flex: 1;">
+                                            <option value="">— Select Employee —</option>
+                                            <% allUsers.forEach(u => { %>
+                                                <% if (!g.members.some(m => m.id == u.id)) { %>
+                                                    <option value="<%= u.id %>"><%= u.first_name %> <%= u.last_name %></option>
+                                                <% } %>
+                                            <% }) %>
+                                        </select>
+                                        <button type="submit" class="btn btn-primary btn-sm" style="height: 30px; padding: 0 0.5rem; font-size: 0.75rem;">Add</button>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <!-- Right: Members List -->
+                            <div>
+                                <h3 style="font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 0.6rem;">
+                                    Group Members (<%= g.members.length %>)
+                                </h3>
+                                <% if (g.members && g.members.length > 0) { %>
+                                    <div class="table-wrap" style="border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 220px; overflow-y: auto;">
+                                        <table style="min-width: 350px;">
+                                            <thead>
+                                                <tr>
+                                                    <th style="padding: 0.4rem 0.6rem; font-size: 0.7rem;">Name</th>
+                                                    <th style="padding: 0.4rem 0.6rem; font-size: 0.7rem;">Username</th>
+                                                    <th style="padding: 0.4rem 0.6rem; font-size: 0.7rem; text-align: right;">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% g.members.forEach(m => { %>
+                                                    <tr>
+                                                        <td style="padding: 0.45rem 0.6rem; font-size: 0.8rem;"><strong><%= m.first_name %> <%= m.last_name %></strong></td>
+                                                        <td style="padding: 0.45rem 0.6rem; font-size: 0.8rem; color: var(--text-muted);">@<%= m.username %></td>
+                                                        <td style="padding: 0.45rem 0.6rem; font-size: 0.8rem; text-align: right;">
+                                                            <form action="/admin/groups/<%= g.id %>/members/remove/<%= m.id %>" method="POST" onsubmit="return confirm('Remove <%= m.first_name %> from this group?');" style="display: inline;">
+                                                                <button type="submit" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.75rem;" title="Remove from group">
+                                                                    <i class="fa-solid fa-user-minus"></i> Remove
+                                                                </button>
+                                                            </form>
+                                                        </td>
+                                                    </tr>
+                                                <% }) %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <% } else { %>
+                                    <div style="padding: 1.5rem; text-align: center; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-light); font-size: 0.82rem;">
+                                        No members in this group yet. Add members using the selector on the left.
+                                    </div>
+                                <% } %>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        <% } else { %>
+            <div class="panel">
+                <div class="panel-body" style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-users-gear" style="font-size: 3rem; color: var(--primary); opacity: 0.25; margin-bottom: 1rem; display: block;"></i>
+                    <p style="font-weight: 500; font-size: 1rem;">No groups created yet</p>
+                    <p style="font-size: 0.85rem; margin-top: 0.25rem;">Use the form on the left to create your first organizational group and assign members.</p>
+                </div>
+            </div>
+        <% } %>
+    </div>
+    
+</div>
+
+<%- include('../partials/footer') %>

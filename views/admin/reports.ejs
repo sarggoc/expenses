@@ -1,0 +1,419 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Expense <span>Reports</span></h1>
+        <p class="admin-page-sub">Filter expenses by employee and timeline, approve/reject pending submissions, and export reports to PDF or Excel.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<!-- ═══ FILTER BAR ═══ -->
+<div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-filter"></i> Select Employee &amp; Billing Cycle</h2>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/reports" method="GET" class="filter-bar" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="filter-field" style="flex: 1; min-width: 200px;">
+                <label for="user_id">Select Employee <span class="req">*</span></label>
+                <select id="user_id" name="user_id" required>
+                    <option value="">— Select Employee —</option>
+                    <% users.forEach(u => { %>
+                        <option value="<%= u.id %>" <%= selectedUser && selectedUser.id == u.id ? 'selected' : '' %>><%= u.first_name %> <%= u.last_name %> (@<%= u.username %>)</option>
+                    <% }) %>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="start_date">From</label>
+                <input type="date" id="start_date" name="start_date" value="<%= startDate %>">
+            </div>
+            <div class="filter-field">
+                <label for="end_date">To</label>
+                <input type="date" id="end_date" name="end_date" value="<%= endDate %>">
+            </div>
+            <button type="submit" class="btn btn-primary" style="height: 38px;">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Load Expenses
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ REPORT CONTENTS ═══ -->
+<% if (selectedUser) { %>
+    
+    <%
+        const reimbursementExpenses = expenses.filter(e => e.payment_type !== 'Company Card');
+        const companyCardExpenses   = expenses.filter(e => e.payment_type === 'Company Card');
+        
+        const reimbTotal = reimbursementExpenses.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+        const cardTotal  = companyCardExpenses.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+    %>
+
+    <div class="admin-page-header" style="margin-bottom: 1.25rem;">
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: var(--text);">Expenses for <%= selectedUser.first_name %> <%= selectedUser.last_name %></h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Cycle: <%= startDate %> to <%= endDate %></p>
+        </div>
+        <% if ((expenses && expenses.length > 0) || (gasExpenses && gasExpenses.length > 0)) { %>
+        <div class="export-btns" style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="/admin/export/pdf/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=all"
+               class="btn btn-pdf btn-sm" title="Download Combined PDF Report">
+                <i class="fa-solid fa-file-pdf"></i> Export Combined PDF
+            </a>
+            <a href="/admin/export/excel/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=all"
+               class="btn btn-excel btn-sm" title="Download Combined Excel Spreadsheet">
+                <i class="fa-solid fa-file-excel"></i> Export Combined Excel
+            </a>
+            <button type="button" class="btn btn-sm" onclick="openCsvExportModal()" title="Export custom CSV data" style="background: var(--surface); border: 1px solid var(--border-dark); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                <i class="fa-solid fa-file-csv" style="color: #2ecc71; font-size: 1.1rem;"></i> Custom CSV Export
+            </button>
+        </div>
+        <% } %>
+    </div>
+
+    <!-- SECTION 1: Personal Reimbursement Expenses -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header" style="background: var(--primary-light); border-bottom-color: rgba(0,115,234,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 class="panel-title" style="color: var(--primary);">
+                <i class="fa-solid fa-hand-holding-dollar"></i> Employee Reimbursement Claims
+            </h3>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+                <span style="font-weight: 700; color: var(--primary); font-size: 0.85rem; margin-right: 0.5rem;">
+                    Total Reimbursable: $<%= reimbTotal.toFixed(2) %> &nbsp;&middot;&nbsp; <%= reimbursementExpenses.length %> expense(s)
+                </span>
+                <% if (reimbursementExpenses.length > 0) { %>
+                    <a href="/admin/export/pdf/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=reimbursements" class="btn btn-pdf btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; height: auto;" title="Export Reimbursements PDF">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </a>
+                    <a href="/admin/export/excel/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=reimbursements" class="btn btn-excel btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; height: auto;" title="Export Reimbursements Excel">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </a>
+                <% } %>
+            </div>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <% if (reimbursementExpenses.length > 0) { %>
+                <%- include('partials/reports_table', { tableExpenses: reimbursementExpenses }) %>
+            <% } else { %>
+                <div class="empty-state" style="padding: 2.5rem 0;">
+                    <i class="fa-solid fa-hand-holding-dollar" style="opacity: 0.25;"></i>
+                    <p>No reimbursement claims found for this timeline.</p>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- SECTION 2: Company Credit Card Expenses -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header" style="background: var(--border-light); border-bottom-color: var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 class="panel-title" style="color: var(--text);">
+                <i class="fa-solid fa-credit-card"></i> Company Credit Card Expenses
+            </h3>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+                <span style="font-weight: 700; color: var(--text); font-size: 0.85rem; margin-right: 0.5rem;">
+                    Total Company Card Cost: $<%= cardTotal.toFixed(2) %> &nbsp;&middot;&nbsp; <%= companyCardExpenses.length %> expense(s)
+                </span>
+                <% if (companyCardExpenses.length > 0) { %>
+                    <a href="/admin/export/pdf/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=cards" class="btn btn-pdf btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; height: auto;" title="Export Company Card PDF">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </a>
+                    <a href="/admin/export/excel/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=cards" class="btn btn-excel btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; height: auto;" title="Export Company Card Excel">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </a>
+                <% } %>
+            </div>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <% if (companyCardExpenses.length > 0) { %>
+                <%- include('partials/reports_table', { tableExpenses: companyCardExpenses }) %>
+            <% } else { %>
+                <div class="empty-state" style="padding: 2.5rem 0;">
+                    <i class="fa-solid fa-credit-card" style="opacity: 0.25;"></i>
+                    <p>No company credit card expenses found for this timeline.</p>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- SECTION 3: Gas Card Expenses -->
+    <%
+        const gasTotal = gasExpenses.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+    %>
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header" style="background: rgba(230,126,34,0.08); border-bottom-color: rgba(230,126,34,0.2); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 class="panel-title" style="color: #e67e22;">
+                <i class="fa-solid fa-gas-pump"></i> Gas Card Expenses
+            </h3>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+                <span style="font-weight: 700; color: #e67e22; font-size: 0.85rem; margin-right: 0.5rem;">
+                    Total Gas Cost: $<%= gasTotal.toFixed(2) %> &nbsp;&middot;&nbsp; <%= gasExpenses.length %> expense(s)
+                </span>
+                <% if (gasExpenses.length > 0) { %>
+                    <a href="/admin/export/pdf/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=gas" class="btn btn-pdf btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; height: auto; background-color:#e67e22; border-color:#e67e22;" title="Export Gas PDF">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </a>
+                    <a href="/admin/export/excel/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=gas" class="btn btn-excel btn-sm" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; height: auto; background-color:#27ae60; border-color:#27ae60;" title="Export Gas Excel">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </a>
+                <% } %>
+            </div>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <% if (gasExpenses.length > 0) { %>
+                <div class="table-responsive">
+                    <table class="table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Store/Merchant</th>
+                                <th>Card Number</th>
+                                <th>Job #</th>
+                                <th>Liters</th>
+                                <th style="text-align: right;">Net ($)</th>
+                                <th style="text-align: right;">GST ($)</th>
+                                <th style="text-align: right;">Total ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% gasExpenses.forEach(exp => { %>
+                                <tr>
+                                    <td><%= typeof exp.date === 'string' ? exp.date.split('T')[0] : '' %></td>
+                                    <td><strong><%= exp.store_name %></strong></td>
+                                    <td><code style="font-size:0.8rem; background:var(--bg-light); padding:0.1rem 0.3rem; border-radius:3px;">****<%= exp.card_number ? exp.card_number.slice(-4) : 'N/A' %></code></td>
+                                    <td>
+                                        <span style="font-weight: 600;"><%= exp.job_number || 'N/A' %></span>
+                                        <% if (exp.job_number && typeof pendingJobsMap !== 'undefined' && pendingJobsMap[exp.job_number.trim().toUpperCase()]) { %>
+                                            <div style="margin-top: 0.35rem;">
+                                                <form action="/admin/jobnumbers/confirm/<%= pendingJobsMap[exp.job_number.trim().toUpperCase()] %>" method="POST" style="display: inline;">
+                                                    <button type="submit" class="btn btn-sm" style="background: #2ecc71; color: #fff; border: none; padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.65rem; display: inline-flex; align-items: center; gap: 0.2rem; height: auto;" title="Accept and Activate Job Number">
+                                                        <i class="fa-solid fa-check" style="font-size: 0.6rem;"></i> Accept Job
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        <% } %>
+                                    </td>
+                                    <td><%= exp.liters_in_tank %>L</td>
+                                    <td style="text-align: right;">$<%= parseFloat(exp.net_amount).toFixed(2) %></td>
+                                    <td style="text-align: right;">$<%= parseFloat(exp.tax_amount).toFixed(2) %></td>
+                                    <td style="text-align: right; font-weight: 600;">$<%= parseFloat(exp.total_amount).toFixed(2) %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } else { %>
+                <div class="empty-state" style="padding: 2.5rem 0;">
+                    <i class="fa-solid fa-gas-pump" style="opacity: 0.25;"></i>
+                    <p>No gas card expenses found for this timeline.</p>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+<% } else { %>
+<div class="panel">
+    <div class="panel-body" style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+        <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--primary); opacity: 0.25; margin-bottom: 1rem; display: block;"></i>
+        <p style="font-weight: 500; font-size: 1rem;">No employee selected</p>
+        <p style="font-size: 0.85rem; margin-top: 0.25rem;">Please select an employee and billing cycle date range from the filter bar above to load their reports.</p>
+    </div>
+</div>
+<% } %>
+
+
+<!-- Rejection Reason Modal -->
+<div id="rejectModal" class="modal" role="dialog" aria-modal="true" aria-label="Reject Expense">
+    <button id="rejectModalClose" class="modal-close" aria-label="Close" onclick="closeRejectModal()"><i class="fa-solid fa-xmark"></i></button>
+    <div class="panel" style="width: 100%; max-width: 440px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden; border: 1px solid var(--border);">
+        <div class="panel-header" style="background: var(--danger-light); border-bottom-color: rgba(220,53,69,0.15); padding: 1.25rem;">
+            <h2 class="panel-title" style="color: var(--danger); margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Reject Expense Submission
+            </h2>
+        </div>
+        <div class="panel-body" style="padding: 1.5rem;">
+            <form id="rejectForm" action="" method="POST" style="margin: 0; padding: 0;">
+                <input type="hidden" name="status" value="rejected">
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                    <label for="rejection_reason" style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-bottom: 0.5rem;">
+                        Reason for Rejection <span class="req" style="color: var(--danger);">*</span>
+                    </label>
+                    <textarea id="rejection_reason" name="rejection_reason" required 
+                              placeholder="Please enter a reason for rejecting this expense (e.g. invalid receipt, incorrect job number, tax type mismatch, etc.)." 
+                              rows="4" 
+                              style="width: 100%; resize: none; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--background); color: var(--text); font-family: inherit; font-size: 0.88rem; transition: border-color var(--transition); box-sizing: border-box;"></textarea>
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="closeRejectModal()" style="height: 38px; padding: 0 1.25rem;">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background: var(--danger); color: white; border: none; height: 38px; padding: 0 1.25rem; font-weight: 600;">
+                        <i class="fa-solid fa-ban"></i> Confirm Rejection
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const rejectModal = document.getElementById("rejectModal");
+    const rejectForm = document.getElementById("rejectForm");
+    const rejectReasonInput = document.getElementById("rejection_reason");
+
+    window.openRejectModal = function(expenseId) {
+        if (rejectForm) {
+            rejectForm.action = `/admin/expense/${expenseId}/status`;
+        }
+        if (rejectReasonInput) {
+            rejectReasonInput.value = "";
+        }
+        if (rejectModal) {
+            rejectModal.classList.add("open");
+            document.body.style.overflow = "hidden";
+            setTimeout(() => {
+                rejectReasonInput.focus();
+            }, 100);
+        }
+    };
+
+    window.closeRejectModal = function() {
+        if (rejectModal) {
+            rejectModal.classList.remove("open");
+            document.body.style.overflow = "";
+        }
+    };
+
+    // Close on escape key
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            closeRejectModal();
+            closeCsvExportModal();
+        }
+    });
+
+    // CSV Export Modal logic
+    window.openCsvExportModal = function() {
+        const csvExportModal = document.getElementById("csvExportModal");
+        if (csvExportModal) {
+            csvExportModal.classList.add("open");
+            document.body.style.overflow = "hidden";
+        }
+    };
+    window.closeCsvExportModal = function() {
+        const csvExportModal = document.getElementById("csvExportModal");
+        if (csvExportModal) {
+            csvExportModal.classList.remove("open");
+            document.body.style.overflow = "";
+        }
+    };
+    window.submitCustomCsvExport = function() {
+        // Collect checked columns with their sort orders
+        const rows = document.querySelectorAll(".csv-col-row");
+        const selectedCols = [];
+        
+        rows.forEach(row => {
+            const checkbox = row.querySelector(".csv-col-cb");
+            const orderInput = row.querySelector(".csv-col-order");
+            if (checkbox && checkbox.checked) {
+                selectedCols.push({
+                    name: checkbox.value,
+                    order: parseInt(orderInput.value) || 99
+                });
+            }
+        });
+        
+        // Sort by order ascending
+        selectedCols.sort((a, b) => a.order - b.order);
+        const colString = selectedCols.map(c => c.name).join(",");
+        
+        if (!colString) {
+            alert("Please select at least one column to export.");
+            return;
+        }
+        
+        const paymentType = document.getElementById("csv_payment_type").value;
+        const url = `/admin/export/csv/<%= selectedUser ? selectedUser.id : '' %>?start_date=<%= startDate %>&end_date=<%= endDate %>&payment_type=${paymentType}&columns=${colString}`;
+        
+        window.location.href = url;
+        closeCsvExportModal();
+    };
+</script>
+
+<!-- Custom CSV Export Modal -->
+<div id="csvExportModal" class="modal" role="dialog" aria-modal="true" aria-label="CSV Export Options">
+    <button class="modal-close" onclick="closeCsvExportModal()"><i class="fa-solid fa-xmark"></i></button>
+    <div class="panel" style="width: 100%; max-width: 580px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden; border: 1px solid var(--border);">
+        <div class="panel-header" style="background: var(--sidebar-bg); border-bottom-color: rgba(0,0,0,0.15); padding: 1.25rem;">
+            <h2 class="panel-title" style="color: #fff; margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid fa-file-csv" style="color: #2ecc71;"></i> Custom CSV Export Configuration
+            </h2>
+        </div>
+        <div class="panel-body" style="padding: 1.5rem; max-height: 75vh; overflow-y: auto;">
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label for="csv_payment_type" style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-bottom: 0.4rem;">Select Export Scope</label>
+                <select id="csv_payment_type" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="both">All Expenses (Combined)</option>
+                    <option value="reimbursement">Employee Reimbursement Claims only</option>
+                    <option value="card">Company Credit Card Expenses only</option>
+                </select>
+            </div>
+            
+            <label style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-bottom: 0.5rem;">Select Columns &amp; Export Order</label>
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-light); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 250px; overflow-y: auto;">
+                <% 
+                    const defaultCols = [
+                        { id: 'date', label: 'Date', order: 1 },
+                        { id: 'store_name', label: 'Store/Merchant', order: 2 },
+                        { id: 'transaction_id', label: 'Transaction ID', order: 3 },
+                        { id: 'job_number', label: 'Job Number', order: 4 },
+                        { id: 'supervisor', label: 'Supervisor', order: 5 },
+                        { id: 'description', label: 'Description', order: 6 },
+                        { id: 'payment_type', label: 'Payment Method', order: 7 },
+                        { id: 'net_amount', label: 'Net Amount ($)', order: 8 },
+                        { id: 'tax_type', label: 'Tax Type', order: 9 },
+                        { id: 'tax_amount', label: 'Tax Amount ($)', order: 10 },
+                        { id: 'fees_breakdown', label: 'Extra Fees Breakdown', order: 11 },
+                        { id: 'fees_total', label: 'Extra Fees Total ($)', order: 12 },
+                        { id: 'total_amount', label: 'Total Cost ($)', order: 13 },
+                        { id: 'status', label: 'Status', order: 14 },
+                        { id: 'submitted_at', label: 'Submitted At', order: 15 },
+                        { id: 'approved_at', label: 'Approved At', order: 16 },
+                        { id: 'approved_by', label: 'Approved By', order: 17 },
+                        { id: 'voided_at', label: 'Voided At', order: 18 },
+                        { id: 'void_reason', label: 'Void Reason', order: 19 }
+                    ];
+                %>
+                <% defaultCols.forEach(col => { %>
+                    <div class="csv-col-row" style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border-light); background: #fff; border-radius: 4px;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; margin: 0;">
+                            <input type="checkbox" class="csv-col-cb" value="<%= col.id %>" checked style="cursor: pointer;">
+                            <span><%= col.label %></span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Order:</span>
+                            <input type="number" class="csv-col-order" value="<%= col.order %>" min="1" max="99" style="width: 45px; padding: 0.15rem; text-align: center; border: 1px solid var(--border); border-radius: 3px; font-size: 0.75rem;">
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+            
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeCsvExportModal()">Cancel</button>
+                <button type="button" class="btn btn-accent" style="flex: 2; background: #2ecc71; border-color: #2ecc71;" onclick="submitCustomCsvExport()">
+                    <i class="fa-solid fa-file-export"></i> Generate CSV Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

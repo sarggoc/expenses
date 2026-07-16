@@ -1,0 +1,139 @@
+<%- include('../partials/header', { title: 'Card Whitelist & Gas Cards' }) %>
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-credit-card"></i> Cards &amp; <span>Whitelist</span></h1>
+        <p class="admin-page-sub">Manage registration card whitelist and gas card assignments.</p>
+    </div>
+</div>
+<% if (error) { %><div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span></div><% } %>
+<% if (success) { %><div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span></div><% } %>
+
+<!-- Card Whitelist -->
+<div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-key"></i> Registration Card Whitelist</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= whitelist.length %> authorized card(s)</span>
+    </div>
+    <div class="panel-body">
+        <p style="font-size:0.83rem; color:var(--text-muted); margin-bottom:1rem;"><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> When cards are listed here, only users whose card last 4 digits match can register. Empty list = open registration.</p>
+        <form action="/admin/whitelist/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.25rem;">
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Card Last 4 Digits</label>
+                <input type="text" name="card_digits" maxlength="4" pattern="\d{4}" required placeholder="e.g. 4821" style="width:120px; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:1rem; letter-spacing:.15em; font-weight:700;">
+            </div>
+            <div style="flex:1; min-width:160px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Label (optional)</label>
+                <input type="text" name="label" placeholder="e.g. John Smith - Company Card" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <div>
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Expiry Date (optional)</label>
+                <input type="date" name="expiry_date" style="padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add Card</button>
+        </form>
+        <% if (whitelist && whitelist.length > 0) { %>
+        <% const todayStr = new Date().toISOString().split('T')[0]; const in60Days = new Date(Date.now() + 60*24*60*60*1000).toISOString().split('T')[0]; %>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Card</th><th>Label</th><th>Expiry</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+            <tbody>
+                <% whitelist.forEach(w => { %>
+                <tr style="<%= w.status === 'suspended' ? 'opacity:0.65;' : '' %>">
+                    <td><span class="card-id-badge" style="<%= w.status === 'suspended' ? 'border-color:var(--danger); color:var(--danger); background:var(--danger-light);' : '' %>"><i class="fa-solid fa-credit-card"></i> ****<%= w.card_digits %></span></td>
+                    <td style="color:var(--text-muted);"><%= w.label || '—' %></td>
+                    <td><% if (w.expiry_date) { %><span style="font-weight:600; color:<%= w.expiry_date <= todayStr ? 'var(--danger)' : w.expiry_date <= in60Days ? 'var(--warning)' : 'var(--text-muted)' %>;"><%= w.expiry_date %><%= w.expiry_date <= todayStr ? ' (Expired)' : '' %></span><% } else { %><span style="color:var(--text-light); font-style:italic;">No Expiry</span><% } %></td>
+                    <td><span class="badge" style="background:<%= w.status === 'suspended' ? 'var(--danger-light); color:var(--danger)' : 'var(--primary-light); color:var(--primary)' %>;"><%= w.status %></span></td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                            <form action="/admin/whitelist/suspend/<%= w.id %>" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-sm" style="background:<%= w.status === 'suspended' ? '#2ecc71' : 'var(--warning-light)' %>; color:<%= w.status === 'suspended' ? '#fff' : 'var(--warning)' %>; border:none;"><i class="fa-solid <%= w.status === 'suspended' ? 'fa-play' : 'fa-pause' %>"></i> <%= w.status === 'suspended' ? 'Activate' : 'Suspend' %></button>
+                            </form>
+                            <form action="/admin/whitelist/remove/<%= w.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Remove ****<%= w.card_digits %>?');">
+                                <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;"><i class="fa-solid fa-trash-can"></i> Remove</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table></div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;"><i class="fa-solid fa-lock-open" style="font-size:2rem; color:var(--warning);"></i><p style="margin-top:.5rem;">No cards in whitelist — open registration.</p></div>
+        <% } %>
+    </div>
+</div>
+
+<!-- Gas Cards -->
+<div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-gas-pump"></i> Gas Card Management</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);"><%= gasCards.length %> gas card(s)</span>
+    </div>
+    <div class="panel-body">
+        <form action="/admin/gas-cards/add" method="POST" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.5rem; background:var(--background-light); padding:1rem; border-radius:10px; border:1px solid var(--border-light);">
+            <div style="flex:1; min-width:150px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Card Number</label>
+                <input type="text" name="card_number" required placeholder="e.g. 7004123456789012" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width:130px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Card Type</label>
+                <select name="card_type" required style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; background:var(--surface);">
+                    <option>Shell</option><option>Esso</option><option>Petro-Canada</option><option>Husky</option><option>Generic</option>
+                </select>
+            </div>
+            <div style="width:110px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Expiry Date</label>
+                <input type="text" name="expiry_date" required placeholder="e.g. 12/28" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width:130px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Truck Assigned</label>
+                <input type="text" name="truck_assigned" placeholder="e.g. Truck 14" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem;">
+            </div>
+            <div style="width:180px;">
+                <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-muted);">Assigned User</label>
+                <select name="user_id" style="width:100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; background:var(--surface);">
+                    <option value="">Unassigned</option>
+                    <% users.forEach(u => { %><option value="<%= u.id %>"><%= u.first_name %> <%= u.last_name %> (<%= u.username %>)</option><% }) %>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add Gas Card</button>
+        </form>
+        <% if (gasCards && gasCards.length > 0) { %>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Card Number</th><th>Type</th><th>Expiry</th><th>Truck</th><th>Assigned User</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+            <tbody>
+                <% gasCards.forEach(gc => { %>
+                <tr>
+                    <td><strong>•••• •••• •••• <%= gc.card_number.slice(-4) %></strong></td>
+                    <td><span class="card-id-badge" style="font-size:.78rem;"><%= gc.card_type %></span></td>
+                    <td><%= gc.expiry_date %></td>
+                    <td><%= gc.truck_assigned || '—' %></td>
+                    <td>
+                        <form action="/admin/gas-cards/assign/<%= gc.id %>" method="POST" style="margin:0;">
+                            <select name="user_id" onchange="this.form.submit()" style="padding:.25rem .45rem; border:1px solid var(--border); border-radius:6px; font-size:.85rem; background:var(--surface);">
+                                <option value="">Unassigned</option>
+                                <% users.forEach(u => { %><option value="<%= u.id %>" <%= gc.user_id === u.id ? 'selected' : '' %>><%= u.first_name %> <%= u.last_name %></option><% }) %>
+                            </select>
+                        </form>
+                    </td>
+                    <td>
+                        <form action="/admin/gas-cards/toggle/<%= gc.id %>" method="POST" style="margin:0;">
+                            <button type="submit" class="badge" style="background:<%= gc.active === 1 ? 'var(--success-light)' : 'var(--danger-light)' %>; color:<%= gc.active === 1 ? 'var(--success)' : 'var(--danger)' %>; border:none; cursor:pointer; font-weight:600;">
+                                <i class="fa-solid <%= gc.active === 1 ? 'fa-circle-check' : 'fa-circle-xmark' %>"></i> <%= gc.active === 1 ? 'Active' : 'Suspended' %>
+                            </button>
+                        </form>
+                    </td>
+                    <td style="text-align:right;">
+                        <form action="/admin/gas-cards/delete/<%= gc.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Delete gas card ending in <%= gc.card_number.slice(-4) %>?');">
+                            <button type="submit" class="btn btn-sm" style="background:var(--danger-light); color:var(--danger); border:none;"><i class="fa-solid fa-trash-can"></i> Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table></div>
+        <% } else { %>
+        <div class="empty-state" style="padding:1.5rem 0;"><i class="fa-solid fa-gas-pump" style="font-size:2rem; opacity:0.4;"></i><p>No gas cards configured yet.</p></div>
+        <% } %>
+    </div>
+</div>
+<%- include('../partials/footer') %>

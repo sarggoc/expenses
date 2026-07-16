@@ -1,0 +1,780 @@
+<%- include('partials/header', { title: 'Dashboard' }) %>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<div class="dashboard-layout-full" style="width: 100%; margin-top: 1rem; margin-bottom: 2rem;">
+    <% if (locals.activeView === 'account') { %>
+        <!-- ═══ ACCOUNT & LIMITS VIEW ═══ -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem;">
+            <!-- Account Card -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="fa-solid fa-address-card"></i> My Account</h2>
+                </div>
+                <div class="panel-body">
+                    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 1.25rem; text-align: center;">
+                        <div style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--primary-light); background: linear-gradient(135deg, #0073EA, #00C875); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.75rem; font-weight: 800; overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 0.5rem;">
+                            <% if (user.profile_photo_path) { %>
+                                <img src="<%= user.profile_photo_path %>" alt="Profile Photo" style="width: 100%; height: 100%; object-fit: cover;" />
+                            <% } else { %>
+                                <%= user.first_name.charAt(0).toUpperCase() %><%= user.last_name.charAt(0).toUpperCase() %>
+                            <% } %>
+                        </div>
+                        <button class="btn btn-sm btn-outline" id="editProfileBtn" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                            <i class="fa-solid fa-user-pen"></i> Edit Profile
+                        </button>
+                    </div>
+                    <div class="account-meta">
+                        <div class="meta-item"><strong><%= user.first_name %></strong>First Name</div>
+                        <div class="meta-item"><strong><%= user.last_name %></strong>Last Name</div>
+                        <div class="meta-item"><strong><%= user.username %></strong>Username</div>
+                        <div class="meta-item"><strong><%= user.email %></strong>Email</div>
+                    </div>
+                    <div style="border-top: 1px solid var(--border-light); padding-top: 0.875rem;">
+                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem;">Card Reference ID</div>
+                        <span class="card-id-badge">
+                            <i class="fa-solid fa-credit-card"></i>
+                            <%= user.card_last_digits %>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spending Limit Widget (Company Card) -->
+            <% if (spending.limit > 0 && user.card_last_digits && user.card_last_digits !== 'None') { %>
+            <%
+                const CCpct = Math.min(100, (spending.total / spending.limit) * 100);
+                const CCapprovedPct = Math.min(100, (spending.approved / spending.limit) * 100);
+                const CCpendingPct  = Math.min(100, (spending.pending / spending.limit) * 100);
+            %>
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title" style="color: var(--sidebar-bg);"><i class="fa-solid fa-credit-card"></i> Company Card Limit</h2>
+                    <span style="font-size:0.8rem; color:var(--text-muted);"><%= CCpct.toFixed(0) %> % used</span>
+                </div>
+                <div class="panel-body">
+                    <!-- Stacked progress bar -->
+                    <div style="background:var(--border-light); border-radius:99px; height:12px; overflow:hidden; margin-bottom:.75rem;">
+                        <div style="display:flex; height:100%; border-radius:99px; overflow:hidden;">
+                            <div style="width:<%= CCapprovedPct.toFixed(1) %>%; background:var(--sidebar-bg); transition:width .4s;"></div>
+                            <div style="width:<%= CCpendingPct.toFixed(1) %>%;  background:var(--warning); transition:width .4s;"></div>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; text-align:center;">
+                        <div style="background:rgba(26,29,46,0.06); border-radius:10px; padding:.6rem .4rem;">
+                            <div style="font-size:.7rem; color:var(--sidebar-bg); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem;">
+                                <i class="fa-solid fa-circle-check"></i> Approved
+                            </div>
+                            <div style="font-size:1.05rem; font-weight:800; color:var(--sidebar-bg);">$<%= spending.approved.toFixed(2) %></div>
+                        </div>
+                        <div style="background:#fff8ec; border-radius:10px; padding:.6rem .4rem;">
+                            <div style="font-size:.7rem; color:var(--warning); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem;">
+                                <i class="fa-solid fa-clock"></i> Pending
+                            </div>
+                            <div style="font-size:1.05rem; font-weight:800; color:var(--warning);">$<%= spending.pending.toFixed(2) %></div>
+                        </div>
+                        <div style="background:<%= spending.remaining <= 0 ? 'var(--danger-light)' : 'var(--primary-light)' %>; border-radius:10px; padding:.6rem .4rem;">
+                            <div style="font-size:.7rem; color:<%= spending.remaining <= 0 ? 'var(--danger)' : 'var(--primary)' %>; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem;">
+                                <i class="fa-solid fa-wallet"></i> Remaining
+                            </div>
+                            <div style="font-size:1.05rem; font-weight:800; color:<%= spending.remaining <= 0 ? 'var(--danger)' : 'var(--primary)' %>;">$<%= spending.remaining.toFixed(2) %></div>
+                        </div>
+                    </div>
+                    <div style="text-align:center; margin-top:.6rem; font-size:.75rem; color:var(--text-muted);">
+                        Limit: <strong>$<%= spending.limit.toFixed(2) %></strong>
+                        &nbsp;·&nbsp; Card Used: <strong>$<%= spending.total.toFixed(2) %></strong>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+
+            <!-- Reimbursement Limit/Cap Widget -->
+            <% if (spending.reimb && spending.reimb.limit > 0) { %>
+            <%
+                const RePct = Math.min(100, (spending.reimb.total / spending.reimb.limit) * 100);
+                const ReApprovedPct = Math.min(100, (spending.reimb.approved / spending.reimb.limit) * 100);
+                const RePendingPct  = Math.min(100, (spending.reimb.pending / spending.reimb.limit) * 100);
+            %>
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title" style="color: var(--accent);"><i class="fa-solid fa-hand-holding-dollar"></i> Reimbursements</h2>
+                    <span style="font-size:0.8rem; color:var(--text-muted);"><%= RePct.toFixed(0) %> % used</span>
+                </div>
+                <div class="panel-body">
+                    <!-- Stacked green progress bar -->
+                    <div style="background:var(--border-light); border-radius:99px; height:12px; overflow:hidden; margin-bottom:.75rem;">
+                        <div style="display:flex; height:100%; border-radius:99px; overflow:hidden;">
+                            <div style="width:<%= ReApprovedPct.toFixed(1) %>%; background:var(--accent); transition:width .4s;"></div>
+                            <div style="width:<%= RePendingPct.toFixed(1) %>%;  background:#8fedb6; transition:width .4s;"></div>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; text-align:center;">
+                        <div style="background:var(--accent-light); border-radius:10px; padding:.6rem .4rem;">
+                            <div style="font-size:.7rem; color:var(--accent-dark); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem;">
+                                <i class="fa-solid fa-circle-check"></i> Approved
+                            </div>
+                            <div style="font-size:1.05rem; font-weight:800; color:var(--accent-dark);">$<%= spending.reimb.approved.toFixed(2) %></div>
+                        </div>
+                        <div style="background:#eafaf1; border-radius:10px; padding:.6rem .4rem;">
+                            <div style="font-size:.7rem; color:#2ecc71; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem;">
+                                <i class="fa-solid fa-clock"></i> Pending
+                            </div>
+                            <div style="font-size:1.05rem; font-weight:800; color:#2ecc71;">$<%= spending.reimb.pending.toFixed(2) %></div>
+                        </div>
+                        <div style="background:<%= spending.reimb.remaining <= 0 ? 'var(--danger-light)' : 'var(--primary-light)' %>; border-radius:10px; padding:.6rem .4rem;">
+                            <div style="font-size:.7rem; color:<%= spending.reimb.remaining <= 0 ? 'var(--danger)' : 'var(--primary)' %>; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem;">
+                                <i class="fa-solid fa-wallet"></i> Remaining
+                            </div>
+                            <div style="font-size:1.05rem; font-weight:800; color:<%= spending.reimb.remaining <= 0 ? 'var(--danger)' : 'var(--primary)' %>;">$<%= spending.reimb.remaining.toFixed(2) %></div>
+                        </div>
+                    </div>
+                    <div style="text-align:center; margin-top:.6rem; font-size:.75rem; color:var(--text-muted);">
+                        Cap: <strong>$<%= spending.reimb.limit.toFixed(2) %></strong>
+                        &nbsp;·&nbsp; Claims Total: <strong>$<%= spending.reimb.total.toFixed(2) %></strong>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+        </div>
+
+    <% } else if (locals.activeView === 'add-reimb' || locals.activeView === 'add-cc') { %>
+        <!-- ═══ ADD EXPENSE FORM VIEW ═══ -->
+        <div class="panel" style="max-width: 650px; margin: 0 auto;">
+            <div class="panel-header">
+                <h2 class="panel-title">
+                    <% if (locals.activeView === 'add-reimb') { %>
+                        <i class="fa-solid fa-hand-holding-dollar"></i> Add Reimbursement Claim
+                    <% } else { %>
+                        <i class="fa-solid fa-credit-card"></i> Add Company Credit Card Expense
+                    <% } %>
+                </h2>
+            </div>
+            <div class="panel-body">
+                <form action="/expenses/add" method="POST" enctype="multipart/form-data" autocomplete="off" id="addExpenseForm">
+                    <input type="hidden" name="fees_json" id="fees_json_hidden">
+
+                    <div class="form-group">
+                        <label for="store_name">Store / Vendor Name <span class="req">*</span></label>
+                        <input type="text" id="store_name" name="store_name" required placeholder="e.g. Home Depot, Staples" autocomplete="off">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="transaction_id">Transaction ID <span class="req">*</span></label>
+                            <input type="text" id="transaction_id" name="transaction_id" required placeholder="TXN-98765">
+                        </div>
+                        <div class="form-group">
+                            <label for="date">Date <span class="req">*</span></label>
+                            <input type="date" id="date" name="date" required value="<%= new Date().toISOString().split('T')[0] %>">
+                        </div>
+                    </div>
+
+                    <!-- Job Number: Combo (select + manual) -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="job_number">
+                                Job Number
+                                <% if (settings.job_number_required) { %><span class="req">*</span><% } else { %><span style="color:var(--text-light);font-weight:400;"> (optional)</span><% } %>
+                            </label>
+                            <% if (jobNumbers && jobNumbers.length > 0) { %>
+                            <select id="job_number" name="job_number" onchange="toggleManualJob(this.value)">
+                                <option value="">— Select Job #</option>
+                                <% jobNumbers.forEach(j => { %>
+                                <option value="<%= j.job_number %>"><%= j.job_number %><% if (j.description) { %> — <%= j.description %><% } %></option>
+                                <% }) %>
+                                <option value="__manual__">✏️ Enter manually…</option>
+                            </select>
+                            <input type="text" id="job_number_manual" name="job_number_manual" placeholder="Type job number…" style="display:none; margin-top: 0.4rem;" autocomplete="off">
+                            <% } else { %>
+                            <input type="text" id="job_number_manual" name="job_number_manual" placeholder="JOB-1002" autocomplete="off">
+                            <% } %>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                <i class="fa-solid fa-info-circle"></i> New job numbers will be sent to admin for confirmation.
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="supervisor">
+                                Supervisor for Approval
+                                <% if (settings.supervisor_required) { %><span class="req">*</span><% } else { %><span style="color:var(--text-light);font-weight:400;"> (optional)</span><% } %>
+                            </label>
+                            <% if (supervisors && supervisors.length > 0) { %>
+                            <select id="supervisor" name="supervisor" <%= settings.supervisor_required ? 'required' : '' %>>
+                                <option value="">— Select Supervisor</option>
+                                <% supervisors.forEach(s => { %>
+                                <option value="<%= s.name %>">
+                                    <%= s.name %>
+                                    <% if (s.group_name) { %> [<%= s.group_name %>]<% } %>
+                                    <% if (s.email) { %> (<%= s.email %>)<% } %>
+                                </option>
+                                <% }) %>
+                            </select>
+                            <% } else { %>
+                            <input type="text" id="supervisor" name="supervisor" <%= settings.supervisor_required ? 'required' : '' %> placeholder="Jane Smith">
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Buttons -->
+                    <div class="form-group" style="display: none;">
+                        <label>Payment Method <span class="req">*</span></label>
+                        <input type="hidden" name="payment_type" id="payment_type" value="<%= locals.activeView === 'add-cc' ? 'Company Card' : 'Reimbursement' %>" required>
+                    </div>
+
+                    <!-- Reimbursement Category (visible when payment method is Reimbursement) -->
+                    <% if (locals.activeView === 'add-reimb') { %>
+                    <div id="reimbursement_type_group" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="expense_type">Reimbursement Category <span class="req">*</span></label>
+                            <select id="expense_type" name="expense_type" required>
+                                <option value="">— Select Reimbursement Category —</option>
+                                <% (locals.reimbursementTypes || []).forEach(t => { %>
+                                    <option value="<%= t.name %>" data-wbs="<%= t.wbs_code || '' %>"><%= t.name %> <%= t.wbs_code ? `(${t.wbs_code})` : '' %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="wbs_code_hidden">WBS Code <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                            <input type="text" name="wbs_code" id="wbs_code_hidden" placeholder="e.g. WBS-204" autocomplete="off">
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <!-- Amount + Tax -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amount">Amount Before Tax ($) <span class="req">*</span></label>
+                            <input type="number" id="amount" name="amount" required step="0.01" min="0.01" placeholder="0.00" inputmode="decimal">
+                        </div>
+                        <div class="form-group">
+                            <label for="tax_type">Tax Type <span class="req">*</span></label>
+                            <select id="tax_type" name="tax_type" required>
+                                <option value="None">No Tax (0%)</option>
+                                <option value="GST">GST (5%)</option>
+                                <option value="HST13">HST — Ontario (13%)</option>
+                                <option value="HST15">HST — Maritime (15%)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Extra Fees -->
+                    <div class="form-group">
+                        <label>Extra Fees <span style="color:var(--text-light);font-weight:400;">(optional – airport fee, baggage, etc.)</span></label>
+                        <div id="fees-container" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="addFeeRow()" style="margin-top: 0.5rem; width: fit-content;">
+                            <i class="fa-solid fa-plus"></i> Add Fee
+                        </button>
+                    </div>
+
+                    <!-- Live Tax + Fees Breakdown -->
+                    <div class="tax-calc">
+                        <div class="tax-calc-row">
+                            <span>Net Amount (pre-tax):</span>
+                            <span id="calc-net">$0.00</span>
+                        </div>
+                        <div class="tax-calc-row">
+                            <span>Tax Added:</span>
+                            <span id="calc-tax">$0.00</span>
+                        </div>
+                        <div class="tax-calc-row" id="calc-fees-row" style="display:none;">
+                            <span id="calc-fees-label">Extra Fees:</span>
+                            <span id="calc-fees">$0.00</span>
+                        </div>
+                        <div class="tax-calc-row total">
+                            <span id="total-label">Total:</span>
+                            <span id="calc-total">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 0.75rem;">
+                        <label for="description">Description <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                        <textarea id="description" name="description" placeholder="Describe the purpose of this expense..." rows="2" style="resize: none;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label for="receipt_photo">Receipt Photo <span style="color:var(--text-light);font-weight:400;">(optional – can be added later via Edit)</span></label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*" capture="environment" style="flex: 1;">
+                            <button type="button" class="btn btn-outline" id="btn-scan-receipt" style="padding: 0.55rem 0.8rem; margin: 0; font-size: 0.8rem;" title="Auto-scan receipt details using AI">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i> AI Scan
+                            </button>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+                            <i class="fa-solid fa-camera"></i> On mobile, tap to open camera directly. Max 10MB.
+                        </div>
+                        <div id="scan-status-message" style="display: none; font-size: 0.75rem; margin-top: 0.35rem; font-weight: 600;"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-accent btn-full" style="margin-top: 0.5rem;" onclick="serializeFeesBeforeSubmit('fees_json_hidden', 'addFeeRow')">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Submit Expense
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    <% } else { %>
+        <!-- ═══ EXPENSE HISTORY VIEW (Default) ═══ -->
+        <div class="panel" style="overflow: hidden; min-width: 0; min-height: 500px;">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fa-solid fa-receipt"></i> Expense History</h2>
+                <span style="font-size: 0.8rem; color: var(--text-muted);"><%= expenses.length %> record(s)</span>
+            </div>
+
+            <% if (expenses && expenses.length > 0) { %>
+            <%
+                const reimburseExp = expenses.filter(e => e.payment_type !== 'Company Card' && e.status !== 'voided');
+                const cardExp      = expenses.filter(e => e.payment_type === 'Company Card' && e.status !== 'voided');
+                const voidedExp    = expenses.filter(e => e.status === 'voided');
+            %>
+
+            <!-- ── HELPER MACRO: expense row ── -->
+            <% function expenseRow(exp) { %>
+            <tr>
+                <td><%= (exp.date || '').toString().split('T')[0] %></td>
+                <td>
+                    <strong><%= exp.store_name %></strong>
+                    <div style="margin-top:2px; display:flex; gap:.25rem; flex-wrap:wrap;">
+                        <span class="badge badge-none" style="font-size:0.65rem; padding: 0.1rem 0.35rem; line-height: 1;">ID: <%= exp.transaction_id %></span>
+                        <% if (!exp.receipt_photo_path) { %>
+                            <span class="badge" style="background:var(--warning); color:#fff; font-size:0.62rem; padding: 0.1rem 0.35rem; line-height: 1;">⚠ Receipt Missing</span>
+                        <% } %>
+                    </div>
+                    <% if (exp.description) { %>
+                        <div style="font-size: 0.73rem; color: var(--text-muted); margin-top: 0.35rem; max-width: 220px; white-space: normal; word-break: break-word;">
+                            <i class="fa-solid fa-align-left" style="font-size: 0.7rem;"></i> <%= exp.description %>
+                        </div>
+                    <% } %>
+                    <% if (exp.rejection_reason) { %>
+                        <div style="font-size: 0.72rem; color: var(--danger); margin-top: 0.3rem; padding: 0.2rem 0.4rem; background: var(--danger-light); border-radius: 4px; max-width: 220px; white-space: normal; word-break: break-word;">
+                            <strong>Rejected:</strong> <%= exp.rejection_reason %>
+                        </div>
+                    <% } %>
+                </td>
+                <td><%= exp.job_number || '—' %></td>
+                <td><%= exp.supervisor || '—' %></td>
+                <td style="font-weight: 600; color: var(--accent-dark);">
+                    $<%= parseFloat(exp.net_amount).toFixed(2) %>
+                    <% if (exp.tax_amount > 0) { %><div style="font-size:0.7rem; color:var(--text-muted);">+$<%= parseFloat(exp.tax_amount).toFixed(2) %> tax</div><% } %>
+                    <% try { const fees = JSON.parse(exp.fees_json || '[]'); if (fees.length > 0) { const ft = fees.reduce((s,f) => s + (parseFloat(f.amount)||0), 0); %><div style="font-size:0.7rem; color:var(--warning);">+$<%= ft.toFixed(2) %> fees</div><% } } catch(e){} %>
+                </td>
+                <td style="font-weight: 700;">$<%= parseFloat(exp.total_amount).toFixed(2) %></td>
+                <td>
+                    <% if (exp.status === 'approved') { %>
+                        <span class="badge" style="background:var(--accent); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-check"></i> Approved</span>
+                        <% if (exp.approved_at) { %><div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;"><%= (exp.approved_at||'').toString().split('T')[0] %></div><% } %>
+                    <% } else if (exp.status === 'rejected') { %>
+                        <span class="badge" style="background:var(--danger); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>
+                    <% } else { %>
+                        <span class="badge" style="background:var(--warning); color:#fff; font-size:.72rem;"><i class="fa-solid fa-clock"></i> Pending</span>
+                    <% } %>
+                </td>
+                <td>
+                    <div style="display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap;">
+                        <% if (exp.receipt_photo_path) { %>
+                            <button class="btn btn-outline btn-sm" onclick="viewReceipt('<%= exp.receipt_photo_path %>')"><i class="fa-solid fa-image"></i></button>
+                        <% } %>
+                        <% if (exp.status === 'pending' || exp.status === 'rejected') { %>
+                            <button class="btn btn-outline btn-sm edit-expense-btn"
+                                    data-id="<%= exp.id %>"
+                                    data-store="<%= exp.store_name %>"
+                                    data-txn="<%= exp.transaction_id %>"
+                                    data-date="<%= (exp.date || '').toString().split('T')[0] %>"
+                                    data-job="<%= exp.job_number || '' %>"
+                                    data-supervisor="<%= exp.supervisor || '' %>"
+                                    data-amount="<%= exp.net_amount %>"
+                                    data-tax="<%= exp.tax_type %>"
+                                    data-payment="<%= exp.payment_type %>"
+                                    data-expense-type="<%= exp.expense_type || '' %>"
+                                    data-wbs="<%= exp.wbs_code || '' %>"
+                                    data-desc="<%= exp.description || '' %>">
+                                <i class="fa-solid fa-pen-to-square"></i> <%= exp.status === 'rejected' ? 'Resubmit' : 'Edit' %>
+                            </button>
+                        <% } %>
+                        <% if (exp.status === 'pending') { %>
+                            <button class="btn btn-sm" onclick="openVoidModal('<%= exp.id %>', '<%= exp.store_name.replace(/'/g, '\\\'') %>')" style="background:var(--danger-light); color:var(--danger); border:none; font-size:0.72rem; padding: 0.25rem 0.45rem;">
+                                <i class="fa-solid fa-ban"></i>
+                            </button>
+                        <% } %>
+                        <button class="btn btn-sm btn-outline" onclick="viewExpenseLogs('<%= exp.id %>')" style="font-size:0.68rem; padding:0.2rem 0.4rem;" title="View activity log">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <% } %>
+
+            <% if (reimburseExp.length > 0) { %>
+            <!-- Reimbursement Claims -->
+            <div style="padding: 0.75rem 1.25rem; background: var(--primary-light); border-bottom: 1px solid var(--border-light); display:flex; align-items:center; gap:0.5rem;">
+                <i class="fa-solid fa-hand-holding-dollar" style="color:var(--primary);"></i>
+                <strong style="font-size:0.85rem; color:var(--primary);">Employee Reimbursement Claims</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted); margin-left: auto;"><%= reimburseExp.length %> claim(s)</span>
+            </div>
+            <div class="table-wrap">
+                <table id="reimbClaimsTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('reimbClaimsTable', 0, this, 'text')" style="cursor: pointer; user-select: none;">Date <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th onclick="sortTable('reimbClaimsTable', 1, this, 'text')" style="cursor: pointer; user-select: none;">Store / Vendor <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th onclick="sortTable('reimbClaimsTable', 2, this, 'text')" style="cursor: pointer; user-select: none;">Job # <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th>Supervisor</th>
+                            <th>Amount</th>
+                            <th onclick="sortTable('reimbClaimsTable', 5, this, 'number')" style="cursor: pointer; user-select: none;">Total <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% reimburseExp.forEach(exp => { expenseRow(exp); }) %>
+                    </tbody>
+                </table>
+            </div>
+            <% } %>
+
+            <% if (cardExp.length > 0) { %>
+            <!-- Company Card Expenses -->
+            <div style="padding: 0.75rem 1.25rem; background: rgba(26,29,46,0.06); border-bottom: 1px solid var(--border-light); border-top: 2px solid var(--border); display:flex; align-items:center; gap:0.5rem;">
+                <i class="fa-solid fa-credit-card" style="color:var(--sidebar-bg);"></i>
+                <strong style="font-size:0.85rem; color:var(--sidebar-bg);">Company Credit Card Expenses</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted); margin-left: auto;"><%= cardExp.length %> expense(s)</span>
+            </div>
+            <div class="table-wrap">
+                <table id="creditCardTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('creditCardTable', 0, this, 'text')" style="cursor: pointer; user-select: none;">Date <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th onclick="sortTable('creditCardTable', 1, this, 'text')" style="cursor: pointer; user-select: none;">Store / Vendor <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th onclick="sortTable('creditCardTable', 2, this, 'text')" style="cursor: pointer; user-select: none;">Job # <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th>Supervisor</th>
+                            <th>Amount</th>
+                            <th onclick="sortTable('creditCardTable', 5, this, 'number')" style="cursor: pointer; user-select: none;">Total <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i></th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% cardExp.forEach(exp => { expenseRow(exp); }) %>
+                    </tbody>
+                </table>
+            </div>
+            <% } %>
+
+            <% if (voidedExp.length > 0) { %>
+            <!-- Voided -->
+            <div style="padding: 0.5rem 1.25rem; background: var(--bg); border-top: 1px solid var(--border-light); cursor:pointer;" onclick="document.getElementById('voidedSection').style.display = document.getElementById('voidedSection').style.display === 'none' ? 'block' : 'none';">
+                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;"><i class="fa-solid fa-ban"></i> <%= voidedExp.length %> Voided Expense(s) – click to show</span>
+            </div>
+            <div id="voidedSection" style="display:none;">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Store / Vendor</th><th>Job #</th><th>Amount</th><th>Void Reason</th></tr>
+                    </thead>
+                    <tbody>
+                        <% voidedExp.forEach(exp => { %>
+                        <tr style="opacity:0.65;">
+                            <td><%= (exp.date||'').toString().split('T')[0] %></td>
+                            <td><strong><%= exp.store_name %></strong></td>
+                            <td><%= exp.job_number || '—' %></td>
+                            <td>$<%= parseFloat(exp.total_amount).toFixed(2) %></td>
+                            <td style="font-size:0.78rem; color:var(--danger);"><%= exp.void_reason || '—' %></td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <% } %>
+
+            <% if (reimburseExp.length === 0 && cardExp.length === 0 && voidedExp.length === 0) { %>
+            <div class="empty-state">
+                <i class="fa-solid fa-receipt"></i>
+                <p>No expenses submitted yet.<br>Add your first expense using the form.</p>
+            </div>
+            <% } %>
+
+            <% } else { %>
+            <div class="empty-state">
+                <i class="fa-solid fa-receipt"></i>
+                <p>No expenses submitted yet.<br>Add your first expense using the form.</p>
+            </div>
+            <% } %>
+        </div>
+    <% } %>
+</div>
+
+
+<!-- Edit Expense Modal -->
+<div id="editExpenseModal" class="modal" role="dialog" aria-modal="true" aria-label="Edit Expense">
+    <div class="panel" style="width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; position: relative; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border);">
+        <button id="editModalClose" class="modal-close" aria-label="Close" style="position: absolute; top: 1rem; right: 1rem; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-xmark"></i></button>
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-pen-to-square"></i> Edit Expense</h2>
+        </div>
+        <div class="panel-body">
+            <form id="editExpenseForm" action="" method="POST" enctype="multipart/form-data" autocomplete="off">
+                <div class="form-group">
+                    <label for="edit_store_name">Store / Vendor Name <span class="req">*</span></label>
+                    <input type="text" id="edit_store_name" name="store_name" required placeholder="e.g. Home Depot, Staples" autocomplete="off">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_transaction_id">Transaction ID <span class="req">*</span></label>
+                        <input type="text" id="edit_transaction_id" name="transaction_id" required placeholder="TXN-98765">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_date">Date <span class="req">*</span></label>
+                        <input type="date" id="edit_date" name="date" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_job_number">
+                            Job Number
+                            <% if (settings.job_number_required) { %><span class="req">*</span><% } else { %><span style="color:var(--text-light);font-weight:400;"> (optional)</span><% } %>
+                        </label>
+                        <% if (jobNumbers && jobNumbers.length > 0) { %>
+                        <select id="edit_job_number" name="job_number" onchange="toggleManualJobEdit(this.value)">
+                            <option value="">— Select Job #</option>
+                            <% jobNumbers.forEach(j => { %>
+                            <option value="<%= j.job_number %>"><%= j.job_number %><% if (j.description) { %> — <%= j.description %><% } %></option>
+                            <% }) %>
+                            <option value="__manual__">✏️ Enter manually…</option>
+                        </select>
+                        <input type="text" id="edit_job_number_manual" name="job_number_manual" placeholder="Type job number…" style="display:none; margin-top: 0.4rem;" autocomplete="off">
+                        <% } else { %>
+                        <input type="text" id="edit_job_number_manual" name="job_number_manual" placeholder="JOB-1002" autocomplete="off">
+                        <% } %>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_supervisor">
+                            Supervisor for Approval
+                            <% if (settings.supervisor_required) { %><span class="req">*</span><% } else { %><span style="color:var(--text-light);font-weight:400;"> (optional)</span><% } %>
+                        </label>
+                        <% if (supervisors && supervisors.length > 0) { %>
+                        <select id="edit_supervisor" name="supervisor" <%= settings.supervisor_required ? 'required' : '' %>>
+                            <option value="">— Select Supervisor</option>
+                            <% supervisors.forEach(s => { %>
+                            <option value="<%= s.name %>">
+                                <%= s.name %>
+                                <% if (s.group_name) { %> [<%= s.group_name %>]<% } %>
+                                <% if (s.email) { %> (<%= s.email %>)<% } %>
+                            </option>
+                            <% }) %>
+                        </select>
+                        <% } else { %>
+                        <input type="text" id="edit_supervisor" name="supervisor" <%= settings.supervisor_required ? 'required' : '' %> placeholder="Jane Smith">
+                        <% } %>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_amount">Amount Before Tax ($) <span class="req">*</span></label>
+                        <input type="number" id="edit_amount" name="amount" required step="0.01" min="0.01" placeholder="0.00" inputmode="decimal">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_tax_type">Tax Type <span class="req">*</span></label>
+                        <select id="edit_tax_type" name="edit_tax_type" required>
+                            <option value="None">No Tax (0%)</option>
+                            <option value="GST">GST (5%)</option>
+                            <option value="HST13">HST — Ontario (13%)</option>
+                            <option value="HST15">HST — Maritime (15%)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Edit Payment Method Pills -->
+                <div class="form-group">
+                    <label>Payment Method <span class="req">*</span></label>
+                    <input type="hidden" name="payment_type" id="edit_payment_type" value="Reimbursement" required>
+                    <div class="pay-toggle" id="editPayToggle">
+                        <button type="button" class="pay-btn edit-pay-btn active" data-value="Reimbursement" onclick="setEditPayMethod('Reimbursement')">
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
+                            <span>Reimbursement</span>
+                        </button>
+                        <% if (user.card_last_digits && user.card_last_digits !== 'None') { %>
+                        <button type="button" class="pay-btn edit-pay-btn" data-value="Company Card" onclick="setEditPayMethod('Company Card')">
+                            <i class="fa-solid fa-credit-card"></i>
+                            <span>Company Card</span>
+                        </button>
+                        <% } %>
+                    </div>
+                </div>
+
+
+                <!-- Edit Reimbursement Category (visible when payment method is Reimbursement) -->
+                <div id="edit_reimbursement_type_group" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="edit_expense_type">Reimbursement Category <span class="req">*</span></label>
+                        <select id="edit_expense_type" name="edit_expense_type" required>
+                            <option value="">— Select Reimbursement Category —</option>
+                            <% (locals.reimbursementTypes || []).forEach(t => { %>
+                                <option value="<%= t.name %>" data-wbs="<%= t.wbs_code || '' %>"><%= t.name %> <%= t.wbs_code ? `(${t.wbs_code})` : '' %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="edit_wbs_code_hidden">WBS Code <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                        <input type="text" name="edit_wbs_code" id="edit_wbs_code_hidden" placeholder="e.g. WBS-204" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_description">Description <span style="color:var(--text-light);font-weight:400;"> (optional)</span></label>
+                    <textarea id="edit_description" name="description" placeholder="Describe the purpose of this expense..." rows="2" style="resize: none;"></textarea>
+                </div>
+
+                <!-- Live Tax Breakdown -->
+                <div class="tax-calc" style="margin-bottom: 1.25rem;">
+                    <div class="tax-calc-row">
+                        <span>Net Amount (pre-tax):</span>
+                        <span id="edit-calc-net">$0.00</span>
+                    </div>
+                    <div class="tax-calc-row">
+                        <span>Tax Added:</span>
+                        <span id="edit-calc-tax">$0.00</span>
+                    </div>
+                    <div class="tax-calc-row total">
+                        <span id="edit-total-label">Total Reimbursable:</span>
+                        <span id="edit-calc-total">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_receipt_photo">Receipt Photo <span style="color:var(--text-light);font-weight:400;"> (leave blank to keep current)</span></label>
+                    <input type="file" id="edit_receipt_photo" name="receipt_photo" accept="image/*" capture="environment">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+                        <i class="fa-solid fa-camera"></i> On mobile, tap to open camera directly. Max 10MB.
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-accent" style="flex: 2;">
+                        <i class="fa-solid fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Edit Profile Modal -->
+<div id="editProfileModal" class="modal" role="dialog" aria-modal="true" aria-label="Edit Profile">
+    <button id="profileModalClose" class="modal-close" aria-label="Close" onclick="closeProfileModal()"><i class="fa-solid fa-xmark"></i></button>
+    <div class="panel" style="width: 100%; max-width: 480px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-user-gear"></i> Edit Profile</h2>
+        </div>
+        <div class="panel-body">
+            <form action="/profile/edit" method="POST" enctype="multipart/form-data" autocomplete="off">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="profile_first_name">First Name <span class="req">*</span></label>
+                        <input type="text" id="profile_first_name" name="first_name" required value="<%= user.first_name %>">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile_last_name">Last Name <span class="req">*</span></label>
+                        <input type="text" id="profile_last_name" name="last_name" required value="<%= user.last_name %>">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="profile_email">Email Address <span class="req">*</span></label>
+                    <input type="email" id="profile_email" name="email" required value="<%= user.email %>">
+                </div>
+
+                <div class="form-group">
+                    <label for="profile_username">Username <span class="req">*</span></label>
+                    <input type="text" id="profile_username" name="username" required value="<%= user.username %>">
+                </div>
+
+                <div class="form-group">
+                    <label for="profile_password">Password <span style="color:var(--text-light);font-weight:400;"> (leave blank to keep current)</span></label>
+                    <input type="password" id="profile_password" name="password" placeholder="••••••••">
+                </div>
+
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label for="profile_photo">Profile Photo <span style="color:var(--text-light);font-weight:400;"> (select image to upload)</span></label>
+                    <input type="file" id="profile_photo" name="profile_photo" accept="image/*">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+                        <i class="fa-solid fa-image"></i> Max 10MB. Will be cropped/centered in a circle.
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeProfileModal()">Cancel</button>
+                    <button type="submit" class="btn btn-accent" style="flex: 2;">
+                        <i class="fa-solid fa-save"></i> Save Profile
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Void Expense Modal -->
+<div id="voidModal" class="modal" role="dialog" aria-modal="true" aria-label="Void Expense">
+    <div class="panel" style="width:100%; max-width:440px; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-lg);">
+        <div class="panel-header" style="border-bottom-color:var(--danger);">
+            <h2 class="panel-title" style="color:var(--danger);"><i class="fa-solid fa-ban"></i> Void Expense</h2>
+        </div>
+        <div class="panel-body">
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+                You are about to void: <strong id="void_expense_label"></strong>. This action cannot be undone.
+            </p>
+            <form method="POST" id="voidForm">
+                <input type="hidden" name="void_expense_id" id="void_expense_id">
+                <div class="form-group">
+                    <label for="void_reason_input">Reason for Voiding <span class="req">*</span></label>
+                    <textarea id="void_reason_input" name="void_reason" required placeholder="Why is this expense being voided?" rows="3" style="resize:none;"></textarea>
+                </div>
+                <div style="display:flex; gap:0.75rem; margin-top:1rem;">
+                    <button type="button" class="btn btn-outline" style="flex:1;" onclick="closeVoidModal()">Cancel</button>
+                    <button type="submit" class="btn" style="flex:2; background:var(--danger); color:#fff;">
+                        <i class="fa-solid fa-ban"></i> Confirm Void
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Expense Logs Modal -->
+<div id="logsModal" class="modal" role="dialog" aria-modal="true" aria-label="Expense Activity Log">
+    <div class="panel" style="width:100%; max-width:520px; max-height:80vh; overflow-y:auto; background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-lg);">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</h2>
+            <button class="btn btn-outline btn-sm" onclick="closeLogsModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="panel-body" id="logsModalBody"></div>
+    </div>
+</div>
+
+<script>
+// Wire up void form submit
+document.addEventListener('DOMContentLoaded', () => {
+    const voidForm = document.getElementById('voidForm');
+    const voidExpIdIn = document.getElementById('void_expense_id');
+    if (voidForm && voidExpIdIn) {
+        voidForm.addEventListener('submit', function(e) {
+            const id = voidExpIdIn.value;
+            voidForm.action = `/expenses/void/${id}`;
+        });
+    }
+});
+</script>
+
+<%- include('partials/footer') %>

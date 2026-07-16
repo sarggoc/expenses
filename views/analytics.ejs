@@ -1,0 +1,322 @@
+<%- include('partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-chart-line"></i> Analytics <span>&amp; Insights</span></h1>
+        <p class="admin-page-sub">Spending trends, per-job breakdowns, and AI-powered purchasing analysis.</p>
+    </div>
+    <a href="/admin" class="btn btn-outline btn-sm"><i class="fa-solid fa-arrow-left"></i> Back to Admin</a>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- ═══ STATS ROW ═══ -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.5rem;">
+    <%
+        const _perJob    = Array.isArray(perJob)    ? perJob    : [];
+        const _perPerson = Array.isArray(perPerson) ? perPerson : [];
+        const _monthly   = Array.isArray(monthly)   ? monthly   : [];
+        const _byTax     = Array.isArray(byTax)     ? byTax     : [];
+        const totalAll   = _perPerson.reduce((a,p) => a + parseFloat(p.total||0), 0);
+        const totalJobs  = _perJob.length;
+        const totalExp   = _perPerson.reduce((a,p) => a + parseInt(p.count||0), 0);
+        const topJob     = _perJob[0]?.job_number || '—';
+    %>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:var(--primary-light); color:var(--primary);"><i class="fa-solid fa-dollar-sign"></i></div>
+        <div class="stat-value">$<%= totalAll.toFixed(2) %></div>
+        <div class="stat-label">Total Spending</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:var(--accent-light); color:var(--accent-dark);"><i class="fa-solid fa-receipt"></i></div>
+        <div class="stat-value"><%= totalExp %></div>
+        <div class="stat-label">Total Expenses</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#f0ebff; color:#7c3aed;"><i class="fa-solid fa-briefcase"></i></div>
+        <div class="stat-value"><%= totalJobs %></div>
+        <div class="stat-label">Active Jobs</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fff8ec; color:var(--warning);"><i class="fa-solid fa-trophy"></i></div>
+        <div class="stat-value" style="font-size:1rem;"><%= topJob %></div>
+        <div class="stat-label">Top Spending Job</div>
+    </div>
+</div>
+
+<!-- ═══ CHARTS ROW 1 ═══ -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem;">
+
+    <!-- Per-Job Bar Chart -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-briefcase"></i> Spending by Job Number</h2>
+        </div>
+        <div class="panel-body">
+            <% if (perJob && perJob.length > 0) { %>
+            <canvas id="chartJob" height="220"></canvas>
+            <% } else { %>
+            <div class="empty-state"><i class="fa-solid fa-briefcase"></i><p>No job data yet.</p></div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Per-Person Bar Chart -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-users"></i> Spending by Employee</h2>
+        </div>
+        <div class="panel-body">
+            <% if (perPerson && perPerson.some(p => p.total > 0)) { %>
+            <canvas id="chartPerson" height="220"></canvas>
+            <% } else { %>
+            <div class="empty-state"><i class="fa-solid fa-users"></i><p>No employee data yet.</p></div>
+            <% } %>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══ CHARTS ROW 2 ═══ -->
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:1.25rem; margin-bottom:1.25rem;">
+
+    <!-- Monthly Trend Line -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-chart-line"></i> Monthly Spending Trend</h2>
+            <span style="font-size:0.8rem; color:var(--text-muted);">Last 6 months</span>
+        </div>
+        <div class="panel-body">
+            <% if (monthly && monthly.length > 0) { %>
+            <canvas id="chartMonthly" height="160"></canvas>
+            <% } else { %>
+            <div class="empty-state"><i class="fa-solid fa-chart-line"></i><p>Not enough data yet.</p></div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Tax Type Doughnut -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-pie-chart"></i> By Tax Type</h2>
+        </div>
+        <div class="panel-body" style="display:flex; align-items:center; justify-content:center;">
+            <% if (byTax && byTax.length > 0) { %>
+            <canvas id="chartTax" height="200" style="max-width:220px;"></canvas>
+            <% } else { %>
+            <div class="empty-state"><i class="fa-solid fa-pie-chart"></i><p>No data.</p></div>
+            <% } %>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══ PER-JOB TABLE ═══ -->
+<% if (perJob && perJob.length > 0) { %>
+<div class="panel" style="margin-bottom:1.25rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-table"></i> Job Number Breakdown</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Job Number</th>
+                    <th>Expenses</th>
+                    <th>Total Spent</th>
+                    <th>Avg per Expense</th>
+                    <th>Share of Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% perJob.forEach(j => { %>
+                <%
+                    const jTotal = parseFloat(j.total||0);
+                    const jCount = parseInt(j.count||0);
+                    const jAvg   = jCount > 0 ? jTotal / jCount : 0;
+                    const jShare = totalAll > 0 ? (jTotal / totalAll * 100) : 0;
+                %>
+                <tr>
+                    <td><span class="card-id-badge" style="font-size:.78rem;"><i class="fa-solid fa-briefcase"></i> <%= j.job_number %></span></td>
+                    <td><strong style="color:var(--primary);"><%= jCount %></strong></td>
+                    <td><strong style="color:var(--accent-dark);">$<%= jTotal.toFixed(2) %></strong></td>
+                    <td>$<%= jAvg.toFixed(2) %></td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:.5rem;">
+                            <div style="background:var(--border-light); border-radius:99px; height:6px; width:80px; overflow:hidden;">
+                                <div style="background:var(--primary); width:<%= jShare.toFixed(1) %>%; height:100%;"></div>
+                            </div>
+                            <span style="font-size:.8rem; color:var(--text-muted);"><%= jShare.toFixed(1) %>%</span>
+                        </div>
+                    </td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+<% } %>
+
+<!-- ═══ AI INSIGHTS ═══ -->
+<div class="panel" id="ai-panel">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-brain"></i> AI Insights <span style="font-size:.75rem; color:var(--text-muted); font-weight:400; margin-left:.5rem;">powered by Gemini</span></h2>
+        <% if (hasAiKey) { %>
+        <button id="aiBtn" class="btn btn-primary btn-sm" onclick="runAIAnalysis()">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Expenses
+        </button>
+        <% } %>
+    </div>
+    <div class="panel-body">
+        <% if (!hasAiKey) { %>
+        <div style="background:var(--bg); border:1.5px dashed var(--border); border-radius:10px; padding:1.5rem; text-align:center;">
+            <i class="fa-solid fa-key" style="font-size:2rem; color:var(--warning); margin-bottom:.75rem; display:block;"></i>
+            <p style="font-weight:600; color:var(--text); margin-bottom:.4rem;">Gemini API Key Not Configured</p>
+            <p style="font-size:.85rem; color:var(--text-muted);">Add <code style="background:var(--border-light); padding:.1rem .4rem; border-radius:4px;">GEMINI_API_KEY=your_key_here</code> to your <code>.env</code> file to enable AI spending analysis.</p>
+        </div>
+        <% } else { %>
+        <div id="ai-placeholder" style="text-align:center; padding:2rem; color:var(--text-muted);">
+            <i class="fa-solid fa-wand-magic-sparkles" style="font-size:2.5rem; opacity:.25; margin-bottom:.75rem; display:block;"></i>
+            <p>Click <strong>Analyze Expenses</strong> to get AI-powered insights on purchasing patterns, trends, and anomalies.</p>
+        </div>
+        <div id="ai-loading" style="display:none; text-align:center; padding:2rem;">
+            <div class="ai-spinner"></div>
+            <p style="color:var(--text-muted); margin-top:1rem; font-size:.9rem;">Analyzing your expense data with Gemini AI…</p>
+        </div>
+        <div id="ai-result" style="display:none;"></div>
+        <% } %>
+    </div>
+</div>
+
+<script>
+// ── Chart: Per-Job
+<% if (_perJob.length > 0) { %>
+new Chart(document.getElementById('chartJob'), {
+    type: 'bar',
+    data: {
+        labels: <%- JSON.stringify(_perJob.map(j => j.job_number)) %>,
+        datasets: [{
+            label: 'Total ($)',
+            data: <%- JSON.stringify(_perJob.map(j => parseFloat(j.total||0).toFixed(2))) %>,
+            backgroundColor: <%- JSON.stringify(_perJob.map((_, i) => `hsl(${210 + i*22}, 72%, ${52 + (i%3)*6}%)`)) %>,
+            borderRadius: 6, borderSkipped: false
+        }]
+    },
+    options: {
+        responsive: true, plugins: { legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' $' + parseFloat(ctx.raw).toFixed(2) } }
+        },
+        scales: { y: { ticks: { callback: v => '$' + v } } }
+    }
+});
+<% } %>
+
+// ── Chart: Per-Person
+<% if (_perPerson.some(p => parseFloat(p.total||0) > 0)) { %>
+new Chart(document.getElementById('chartPerson'), {
+    type: 'bar',
+    data: {
+        labels: <%- JSON.stringify(_perPerson.map(p => p.name)) %>,
+        datasets: [{
+            label: 'Total ($)',
+            data: <%- JSON.stringify(_perPerson.map(p => parseFloat(p.total||0).toFixed(2))) %>,
+            backgroundColor: <%- JSON.stringify(_perPerson.map((_, i) => `hsl(${155 + i*30}, 65%, ${45 + (i%3)*5}%)`)) %>,
+            borderRadius: 6, borderSkipped: false
+        }]
+    },
+    options: {
+        responsive: true, plugins: { legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' $' + parseFloat(ctx.raw).toFixed(2) } }
+        },
+        scales: { y: { ticks: { callback: v => '$' + v } } }
+    }
+});
+<% } %>
+
+// ── Chart: Monthly Trend
+<% if (_monthly.length > 0) { %>
+new Chart(document.getElementById('chartMonthly'), {
+    type: 'line',
+    data: {
+        labels: <%- JSON.stringify(_monthly.map(m => m.month)) %>,
+        datasets: [{
+            label: 'Monthly Total ($)',
+            data: <%- JSON.stringify(_monthly.map(m => parseFloat(m.total||0).toFixed(2))) %>,
+            borderColor: '#0073EA', backgroundColor: 'rgba(0,115,234,0.08)',
+            tension: 0.4, fill: true, pointBackgroundColor: '#0073EA',
+            pointRadius: 5, pointHoverRadius: 7
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' $' + parseFloat(ctx.raw).toFixed(2) } }
+        },
+        scales: { y: { ticks: { callback: v => '$' + v } } }
+    }
+});
+<% } %>
+
+// ── Chart: Tax Type Doughnut
+<% if (_byTax.length > 0) { %>
+new Chart(document.getElementById('chartTax'), {
+    type: 'doughnut',
+    data: {
+        labels: <%- JSON.stringify(_byTax.map(t => t.tax_type)) %>,
+        datasets: [{
+            data: <%- JSON.stringify(_byTax.map(t => parseFloat(t.total||0).toFixed(2))) %>,
+            backgroundColor: ['#0073EA','#00C875','#A25DDC','#FDAB3D'],
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true, cutout: '65%',
+        plugins: { tooltip: { callbacks: { label: ctx => ' $' + parseFloat(ctx.raw).toFixed(2) } } }
+    }
+});
+<% } %>
+
+// ── AI Analysis
+async function runAIAnalysis() {
+    const btn = document.getElementById('aiBtn');
+    const placeholder = document.getElementById('ai-placeholder');
+    const loading = document.getElementById('ai-loading');
+    const result = document.getElementById('ai-result');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing…';
+    if (placeholder) placeholder.style.display = 'none';
+    if (loading) loading.style.display = 'block';
+    if (result) result.style.display = 'none';
+    try {
+        const resp = await fetch('/admin/ai-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await resp.json();
+        if (loading) loading.style.display = 'none';
+        if (data.error) {
+            result.innerHTML = `<div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span>${data.error}</span></div>`;
+        } else {
+            // Convert markdown-ish to HTML
+            const html = data.analysis
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/^## (.+)$/gm, '<h3 style="color:var(--primary);margin:1.2rem 0 .4rem;font-size:1rem;">$1</h3>')
+                .replace(/^### (.+)$/gm, '<h4 style="color:var(--text);margin:.9rem 0 .3rem;font-size:.9rem;">$1</h4>')
+                .replace(/^# (.+)$/gm, '<h2 style="color:var(--primary);margin:1.2rem 0 .5rem;font-size:1.1rem;">$1</h2>')
+                .replace(/^\d+\. (.+)$/gm, '<li style="margin:.3rem 0;">$1</li>')
+                .replace(/^- (.+)$/gm, '<li style="margin:.25rem 0; color:var(--text-muted);">$1</li>')
+                .replace(/\n\n/g, '</p><p style="margin:.5rem 0;">')
+                .replace(/\n/g, '<br>');
+            result.innerHTML = `<div style="line-height:1.7; font-size:.88rem; color:var(--text);">${html}</div>`;
+        }
+        result.style.display = 'block';
+    } catch (e) {
+        if (loading) loading.style.display = 'none';
+        result.innerHTML = `<div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span>Request failed: ${e.message}</span></div>`;
+        result.style.display = 'block';
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Re-Analyze';
+}
+</script>
+
+<%- include('partials/footer') %>

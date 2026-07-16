@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Sargtech Expenses - Secure corporate expense reporting." />
+    <title><%= title %> | Sargtech Expenses</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script>
+        // Apply saved theme before render to avoid flash
+        (function() {
+            const t = localStorage.getItem('sargtech-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+<body>
+
+<div class="app-shell">
+
+    <!-- ═══ SIDEBAR ═══ -->
+    <% if (user) { %>
+    <aside class="sidebar" id="sidebar">
+
+        <!-- Logo -->
+        <div class="sidebar-logo" style="gap: 0.5rem;">
+            <div class="sidebar-logo-icon"><i class="fa-solid fa-wallet"></i></div>
+            <div class="sidebar-logo-text">
+                <span class="logo-brand">Sarg<span>Tech</span></span>
+                <span class="logo-sub">Expenses</span>
+            </div>
+            <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar" style="margin-left:auto;">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </div>
+
+        <!-- Nav -->
+        <nav class="sidebar-nav">
+            <div class="sidebar-section-label">Overview</div>
+            
+            <!-- My Expenses Dropdown -->
+            <div class="sidebar-dropdown <%= locals.activePage === 'dashboard' ? 'open' : '' %>">
+                <a href="#" class="sidebar-link sidebar-dropdown-toggle">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>My Expenses</span>
+                    <i class="fa-solid fa-chevron-down dropdown-arrow" style="margin-left: auto; font-size: 0.75rem; transition: transform 0.2s;"></i>
+                </a>
+                <div class="sidebar-dropdown-menu">
+                    <a href="/dashboard?view=account" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && locals.activeView === 'account' ? 'active' : '' %>">
+                        <i class="fa-solid fa-user-gear"></i> Account &amp; Limits
+                    </a>
+                    <a href="/dashboard?view=add-reimb" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && locals.activeView === 'add-reimb' ? 'active' : '' %>">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> Add Reimbursement
+                    </a>
+                    <% if (user.card_last_digits && user.card_last_digits !== 'None') { %>
+                    <a href="/dashboard?view=add-cc" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && locals.activeView === 'add-cc' ? 'active' : '' %>">
+                        <i class="fa-solid fa-credit-card"></i> Add Credit Card
+                    </a>
+                    <% } %>
+                    <a href="/dashboard?view=history" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && (locals.activeView === 'history' || !locals.activeView) ? 'active' : '' %>">
+                        <i class="fa-solid fa-history"></i> Claims History
+                    </a>
+                </div>
+            </div>
+
+            <!-- Gas Expenses Dropdown -->
+            <% if (locals.hasGasCard) { %>
+            <div class="sidebar-dropdown <%= locals.activePage === 'gas-expenses' ? 'open' : '' %>">
+                <a href="#" class="sidebar-link sidebar-dropdown-toggle">
+                    <i class="fa-solid fa-gas-pump"></i>
+                    <span>Gas Expenses</span>
+                    <i class="fa-solid fa-chevron-down dropdown-arrow" style="margin-left: auto; font-size: 0.75rem; transition: transform 0.2s;"></i>
+                </a>
+                <div class="sidebar-dropdown-menu">
+                    <a href="/gas-expenses?view=cards" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'cards' ? 'active' : '' %>">
+                        <i class="fa-solid fa-credit-card"></i> Active Gas Cards
+                    </a>
+                    <a href="/gas-expenses?view=add-form" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'add-form' ? 'active' : '' %>">
+                        <i class="fa-solid fa-circle-plus"></i> Add Gas Expense
+                    </a>
+                    <a href="/gas-expenses?view=history" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && (locals.activeView === 'history' || !locals.activeView) ? 'active' : '' %>">
+                        <i class="fa-solid fa-history"></i> Audit &amp; History
+                    </a>
+                </div>
+            </div>
+            <% } %>
+            <a href="#" class="sidebar-link" id="notif-toggle" style="position: relative;">
+                <i class="fa-solid fa-bell"></i>
+                <span>Notifications</span>
+                <% if (locals.unreadNotificationsCount > 0) { %>
+                    <span class="badge" style="background: var(--danger); color: #fff; border-radius: 99px; padding: 0.1rem 0.35rem; font-size: 0.65rem; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; border: none; line-height: 1;">
+                        <%= locals.unreadNotificationsCount %>
+                    </span>
+                <% } %>
+            </a>
+
+            <% if (user.role === 'admin' || user.role === 'accounting') { %>
+            <div class="sidebar-section-label" style="margin-top: 1rem;">Admin Controls</div>
+            <!-- Settings Dropdown -->
+            <div class="sidebar-dropdown <%= ['admin','settings-general','settings-supervisors','settings-jobnumbers','settings-categories','settings-cards'].includes(locals.activePage) ? 'open' : '' %>">
+                <a href="#" class="sidebar-link sidebar-dropdown-toggle">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings &amp; Config</span>
+                    <i class="fa-solid fa-chevron-down dropdown-arrow" style="margin-left:auto; font-size:0.75rem; transition:transform 0.2s;"></i>
+                </a>
+                <div class="sidebar-dropdown-menu">
+                    <a href="/admin/settings/general" class="sidebar-sub-link <%= locals.activePage === 'settings-general' ? 'active' : '' %>">
+                        <i class="fa-solid fa-toggle-on"></i> General
+                    </a>
+                    <a href="/admin/settings/supervisors" class="sidebar-sub-link <%= locals.activePage === 'settings-supervisors' ? 'active' : '' %>">
+                        <i class="fa-solid fa-user-tie"></i> Supervisors
+                    </a>
+                    <a href="/admin/settings/jobnumbers" class="sidebar-sub-link <%= locals.activePage === 'settings-jobnumbers' ? 'active' : '' %>">
+                        <i class="fa-solid fa-briefcase"></i> Job Numbers
+                    </a>
+                    <a href="/admin/settings/categories" class="sidebar-sub-link <%= locals.activePage === 'settings-categories' ? 'active' : '' %>">
+                        <i class="fa-solid fa-tags"></i> Categories
+                    </a>
+                    <a href="/admin/settings/cards" class="sidebar-sub-link <%= locals.activePage === 'settings-cards' ? 'active' : '' %>">
+                        <i class="fa-solid fa-credit-card"></i> Cards &amp; Whitelist
+                    </a>
+                </div>
+            </div>
+            <!-- Users Dropdown -->
+            <div class="sidebar-dropdown <%= ['users-list','users-add'].includes(locals.activePage) ? 'open' : '' %>">
+                <a href="#" class="sidebar-link sidebar-dropdown-toggle">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Manage Users</span>
+                    <i class="fa-solid fa-chevron-down dropdown-arrow" style="margin-left:auto; font-size:0.75rem; transition:transform 0.2s;"></i>
+                </a>
+                <div class="sidebar-dropdown-menu">
+                    <a href="/admin/users" class="sidebar-sub-link <%= locals.activePage === 'users-list' ? 'active' : '' %>">
+                        <i class="fa-solid fa-address-book"></i> Active Users
+                    </a>
+                    <a href="/admin/users/add" class="sidebar-sub-link <%= locals.activePage === 'users-add' ? 'active' : '' %>">
+                        <i class="fa-solid fa-user-plus"></i> Add User
+                    </a>
+                </div>
+            </div>
+
+            <!-- Groups Dropdown -->
+            <div class="sidebar-dropdown <%= ['groups-list','groups-add'].includes(locals.activePage) ? 'open' : '' %>">
+                <a href="#" class="sidebar-link sidebar-dropdown-toggle">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Manage Groups</span>
+                    <i class="fa-solid fa-chevron-down dropdown-arrow" style="margin-left:auto; font-size:0.75rem; transition:transform 0.2s;"></i>
+                </a>
+                <div class="sidebar-dropdown-menu">
+                    <a href="/admin/groups" class="sidebar-sub-link <%= locals.activePage === 'groups-list' ? 'active' : '' %>">
+                        <i class="fa-solid fa-people-group"></i> Active Groups
+                    </a>
+                    <a href="/admin/groups/create" class="sidebar-sub-link <%= locals.activePage === 'groups-add' ? 'active' : '' %>">
+                        <i class="fa-solid fa-circle-plus"></i> Create Group
+                    </a>
+                </div>
+            </div>
+            <a href="/admin/analytics" class="sidebar-link <%= locals.activePage === 'analytics' ? 'active' : '' %>">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Analytics</span>
+            </a>
+            <% } %>
+
+            <% if (user.role === 'admin' || user.role === 'accounting' || user.role === 'approver') { %>
+            <div class="sidebar-section-label" style="margin-top: 1rem;">Reports &amp; Approvals</div>
+            <a href="/admin/spending" class="sidebar-link <%= locals.activePage === 'spending' ? 'active' : '' %>">
+                <i class="fa-solid fa-credit-card"></i>
+                <span>Employee Spending</span>
+            </a>
+            <a href="/admin/reports" class="sidebar-link <%= locals.activePage === 'reports' ? 'active' : '' %>">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Expense Reports</span>
+            </a>
+            <% } %>
+        </nav>
+
+        <!-- Spacer -->
+        <div style="flex:1;"></div>
+
+        <!-- User Profile -->
+        <div class="sidebar-profile">
+            <div class="sidebar-avatar" style="overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <% if (user.profile_photo_path) { %>
+                    <img src="<%= user.profile_photo_path %>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
+                <% } else { %>
+                    <%= user.first_name.charAt(0).toUpperCase() %><%= user.last_name.charAt(0).toUpperCase() %>
+                <% } %>
+            </div>
+            <div class="sidebar-profile-info">
+                <div class="sidebar-profile-name"><%= user.first_name %> <%= user.last_name %></div>
+                <div class="sidebar-profile-role">
+                    <span class="badge badge-<%= user.role %>"><%= user.role %></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom actions -->
+        <div class="sidebar-bottom">
+            <!-- Dark mode toggle -->
+            <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+                <i class="fa-solid fa-sun" id="themeIcon"></i>
+                <span id="themeLabel">Light</span>
+            </button>
+
+            <a href="/logout" class="sidebar-logout">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Sign Out</span>
+            </a>
+        </div>
+
+    </aside>
+
+    <!-- Notifications Modal -->
+    <div id="notificationsModal" class="modal" role="dialog" aria-modal="true" aria-label="Notifications">
+        <button id="notifClose" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="panel" style="width: 100%; max-width: 480px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);">
+            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border);">
+                <h2 class="panel-title" style="margin:0;"><i class="fa-solid fa-bell"></i> Notifications</h2>
+                <% if (locals.unreadNotificationsCount > 0) { %>
+                    <form action="/notifications/read-all" method="POST" style="margin: 0; padding:0; display:inline;">
+                        <button type="submit" class="btn btn-outline btn-sm">
+                            <i class="fa-solid fa-check-double"></i> Mark all read
+                        </button>
+                    </form>
+                <% } %>
+            </div>
+            <div class="panel-body" style="overflow-y: auto; flex: 1; padding: 0;">
+                <% if (locals.notifications && locals.notifications.length > 0) { %>
+                    <div style="display: flex; flex-direction: column;">
+                        <% locals.notifications.forEach(n => { %>
+                            <div style="padding: 1rem; border-bottom: 1px solid var(--border-light); background: <%= n.is_read ? 'transparent' : 'var(--primary-light)' %>; display: flex; flex-direction: column; gap: 0.35rem; transition: background var(--transition);">
+                                <div style="font-size: 0.88rem; color: var(--text); line-height: 1.45;">
+                                    <%- n.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') %>
+                                </div>
+
+                                <% if (n.expense_id) { %>
+                                    <!-- Details toggle button -->
+                                    <button onclick="toggleNotificationDetails('<%= n.id %>')" style="background: none; border: none; padding: 0; color: var(--primary); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; width: fit-content; margin-top: 0.25rem;">
+                                        <i class="fa-solid fa-circle-info"></i> <span id="notif-btn-<%= n.id %>">Show Expense Details</span>
+                                    </button>
+                                    
+                                    <!-- Expandable details container -->
+                                    <div id="notif-details-<%= n.id %>" style="display: none; margin-top: 0.75rem; padding: 0.75rem; background: var(--background); border-radius: var(--radius-sm); border: 1px solid var(--border-light); font-size: 0.78rem; color: var(--text); text-align: left;">
+                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 0.5rem;">
+                                            <div><strong>Store/Vendor:</strong> <%= n.store_name %></div>
+                                            <div><strong>Date:</strong> <%= (n.date || '').toString().split('T')[0] %></div>
+                                            <div><strong>Transaction ID:</strong> <%= n.transaction_id %></div>
+                                            <div><strong>Job Number:</strong> <%= n.job_number || '—' %></div>
+                                            <div><strong>Supervisor:</strong> <%= n.supervisor || '—' %></div>
+                                            <div><strong>Payment Type:</strong> <%= n.payment_type %></div>
+                                        </div>
+                                        
+                                        <% if (n.description) { %>
+                                            <div style="margin-bottom: 0.5rem; border-top: 1px solid var(--border-light); padding-top: 0.4rem;">
+                                                <strong>Description:</strong> <%= n.description %>
+                                            </div>
+                                        <% } %>
+
+                                        <div style="border-top: 1px solid var(--border-light); padding-top: 0.4rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                            <div>
+                                                <strong>Total:</strong> $<%= parseFloat(n.total_amount || 0).toFixed(2) %> 
+                                                <span style="color: var(--text-muted); font-size: 0.7rem;">(Net: $<%= parseFloat(n.net_amount || 0).toFixed(2) %>, Tax: $<%= parseFloat(n.tax_amount || 0).toFixed(2) %> <%= n.tax_type %>)</span>
+                                            </div>
+                                            <% if (n.receipt_photo_path) { %>
+                                                <button class="btn btn-sm btn-outline" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; height: auto;" onclick="viewReceipt('<%= n.receipt_photo_path %>')">
+                                                    <i class="fa-solid fa-receipt"></i> View Receipt
+                                                </button>
+                                            <% } %>
+                                        </div>
+
+                                        <% if (n.rejection_reason) { %>
+                                            <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--danger-light); color: var(--danger); border-radius: 4px; font-weight: 500;">
+                                                <strong>Rejection Reason:</strong> <%= n.rejection_reason %>
+                                            </div>
+                                        <% } %>
+                                    </div>
+                                <% } %>
+
+                                <div style="font-size: 0.72rem; color: var(--text-muted); display:flex; align-items:center; gap:.25rem; margin-top: 0.25rem;">
+                                    <i class="fa-regular fa-clock"></i> <%= new Date(n.created_at).toLocaleString() %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state" style="padding: 3.5rem 0;">
+                        <i class="fa-solid fa-bell-slash" style="font-size: 2.5rem; opacity: 0.2; margin-bottom: 0.75rem; display: block; color: var(--primary);"></i>
+                        <p style="color:var(--text-muted);">No notifications yet.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Viewer Modal (Globally available on all pages) -->
+    <div id="receiptModal" class="modal" role="dialog" aria-modal="true" aria-label="Receipt Image">
+        <button id="modalClose" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        <img id="modalImg" class="modal-img" src="" alt="Receipt Photo" />
+    </div>
+
+    <script>
+        window.toggleNotificationDetails = function(notifId) {
+            const detailsDiv = document.getElementById('notif-details-' + notifId);
+            const btnText = document.getElementById('notif-btn-' + notifId);
+            if (!detailsDiv) return;
+            
+            if (detailsDiv.style.display === 'none') {
+                detailsDiv.style.display = 'block';
+                if (btnText) btnText.textContent = 'Hide Expense Details';
+            } else {
+                detailsDiv.style.display = 'none';
+                if (btnText) btnText.textContent = 'Show Expense Details';
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.sidebar-dropdown-toggle').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const dropdown = btn.closest('.sidebar-dropdown');
+                    if (dropdown) {
+                        dropdown.classList.toggle('open');
+                    }
+                });
+            });
+
+            // Mobile menu and overlay toggle
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+            if (mobileMenuBtn && sidebar && sidebarOverlay) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    sidebar.classList.toggle('open');
+                    sidebarOverlay.classList.toggle('open');
+                });
+                
+                sidebarOverlay.addEventListener('click', () => {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('open');
+                });
+            }
+
+            // Mobile notification button toggle
+            const mobileNotifBtn = document.getElementById('mobileNotifBtn');
+            const notifModal = document.getElementById('notificationsModal');
+            if (mobileNotifBtn && notifModal) {
+                mobileNotifBtn.addEventListener('click', () => {
+                    notifModal.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                });
+            }
+        });
+    </script>
+    <% } %>
+
+    <!-- ═══ MAIN CONTENT ═══ -->
+    <div class="main-wrapper <%= user ? 'has-sidebar' : '' %>">
+        <% if (user) { %>
+        <!-- Mobile Header Bar -->
+        <header class="mobile-header">
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="mobile-logo">
+                <span class="logo-brand">Sarg<span>Tech</span></span>
+                <span class="logo-sub">Expenses</span>
+            </div>
+            <button class="mobile-notif-btn" id="mobileNotifBtn" aria-label="Notifications">
+                <i class="fa-solid fa-bell"></i>
+                <% if (locals.unreadNotificationsCount > 0) { %>
+                    <span class="notif-badge-dot"></span>
+                <% } %>
+            </button>
+        </header>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <% } %>
+        <main>

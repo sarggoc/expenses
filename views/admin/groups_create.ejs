@@ -1,0 +1,56 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-circle-plus"></i> Create <span>Group</span></h1>
+        <p class="admin-page-sub">Create organizational groups and assign a dedicated group approver.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<div style="max-width: 540px; margin: 0 auto; margin-bottom: 3rem;">
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-circle-plus"></i> Create Group Form</h2>
+        </div>
+        <div class="panel-body">
+            <form action="/admin/groups/add" method="POST" autocomplete="off" style="display: flex; flex-direction: column; gap: 0.85rem;">
+                <div class="form-group">
+                    <label for="name">Group Name <span class="req">*</span></label>
+                    <input type="text" id="name" name="name" required placeholder="e.g. Field Ops, Sales" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" placeholder="e.g. Field technicians and surveyors" rows="3" style="resize: none;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="approver_id">Group Approver</label>
+                    <select id="approver_id" name="approver_id">
+                        <option value="">— None Assigned —</option>
+                        <% approvers.forEach(a => { %>
+                            <option value="<%= a.id %>"><%= a.first_name %> <%= a.last_name %> (@<%= a.username %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem;">
+                    <a href="/admin/groups" class="btn btn-outline" style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center;">Cancel</a>
+                    <button type="submit" class="btn btn-accent" style="flex: 2;">
+                        <i class="fa-solid fa-plus"></i> Create Group
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

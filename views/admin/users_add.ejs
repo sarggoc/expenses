@@ -1,0 +1,94 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-user-plus"></i> Add <span>User</span></h1>
+        <p class="admin-page-sub">Create a new system user, assign role, credit card limits, and division.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<div style="max-width: 540px; margin: 0 auto; margin-bottom: 3rem;">
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-user-plus"></i> Add User Form</h2>
+        </div>
+        <div class="panel-body">
+            <form action="/admin/users/add" method="POST" autocomplete="off" style="display: flex; flex-direction: column; gap: 0.85rem;">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="first_name">First Name <span class="req">*</span></label>
+                        <input type="text" id="first_name" name="first_name" required placeholder="John">
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name <span class="req">*</span></label>
+                        <input type="text" id="last_name" name="last_name" required placeholder="Doe">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="username">Username <span class="req">*</span></label>
+                    <input type="text" id="username" name="username" required placeholder="johndoe">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address <span class="req">*</span></label>
+                    <input type="email" id="email" name="email" required placeholder="john@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password <span class="req">*</span></label>
+                    <input type="password" id="password" name="password" required placeholder="password123">
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="card_last_digits">Card Last 4 <span style="color:var(--text-light);font-weight:400;"> (optional)</span></label>
+                        <input type="text" id="card_last_digits" name="card_last_digits" maxLength="4" placeholder="None">
+                    </div>
+                    <div class="form-group">
+                        <label for="role">Role <span class="req">*</span></label>
+                        <select id="role" name="role" required>
+                            <option value="user">User</option>
+                            <option value="pm">Project Manager</option>
+                            <option value="approver">Approver</option>
+                            <option value="accounting">Accounting</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="division_id">Division <span style="color:var(--text-light);font-weight:400;"> (optional)</span></label>
+                    <select id="division_id" name="division_id">
+                        <option value="">— No Division —</option>
+                        <% (locals.divisions || []).forEach(d => { %>
+                            <option value="<%= d.id %>"><%= d.name %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="spending_limit">Credit Card Limit ($) <span style="color:var(--text-light);font-weight:400;"> (optional)</span></label>
+                    <input type="number" id="spending_limit" name="spending_limit" step="0.01" placeholder="e.g. 5000">
+                </div>
+                <div class="form-group">
+                    <label for="reimbursement_cap">Reimbursement Cap ($) <span style="color:var(--text-light);font-weight:400;"> (optional)</span></label>
+                    <input type="number" id="reimbursement_cap" name="reimbursement_cap" step="0.01" placeholder="e.g. 2000">
+                </div>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem;">
+                    <a href="/admin/users" class="btn btn-outline" style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center;">Cancel</a>
+                    <button type="submit" class="btn btn-accent" style="flex: 2;">
+                        <i class="fa-solid fa-plus"></i> Add User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

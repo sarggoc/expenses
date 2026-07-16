@@ -1,0 +1,131 @@
+<div class="table-wrap">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Store / Vendor</th>
+                <th>Job #</th>
+                <th>Supervisor</th>
+                <th>Net Amount</th>
+                <th>Tax</th>
+                <th>Total</th>
+                <th>Receipt</th>
+                <th>Status</th>
+                <th style="text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% tableExpenses.forEach(exp => { %>
+            <tr>
+                <td><%= (exp.date || '').toString().split('T')[0] %></td>
+                <td>
+                    <strong><%= exp.store_name %></strong>
+                    <div class="cell-sub">ID: <%= exp.transaction_id %></div>
+                    <% if (exp.description) { %>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; max-width: 250px; white-space: normal; word-break: break-word;">
+                            <i class="fa-solid fa-align-left" style="font-size: 0.7rem;"></i> <%= exp.description %>
+                        </div>
+                    <% } %>
+                </td>
+                <td>
+                    <span class="badge badge-none" style="font-weight: 600;"><%= exp.job_number || '—' %></span>
+                    <% if (exp.job_number && typeof pendingJobsMap !== 'undefined' && pendingJobsMap[exp.job_number.trim().toUpperCase()]) { %>
+                        <div style="margin-top: 0.35rem;">
+                            <form action="/admin/jobnumbers/confirm/<%= pendingJobsMap[exp.job_number.trim().toUpperCase()] %>" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-sm" style="background: #2ecc71; color: #fff; border: none; padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.65rem; display: inline-flex; align-items: center; gap: 0.2rem; height: auto;" title="Accept and Activate Job Number">
+                                    <i class="fa-solid fa-check" style="font-size: 0.6rem;"></i> Accept Job
+                                </button>
+                            </form>
+                        </div>
+                    <% } %>
+                </td>
+                <td><%= exp.supervisor || '—' %></td>
+                <td style="font-weight: 600;">$<%= parseFloat(exp.net_amount).toFixed(2) %></td>
+                <td>
+                    $<%= parseFloat(exp.tax_amount).toFixed(2) %>
+                    <div style="margin-top:2px;">
+                        <% if (exp.tax_type === 'GST') { %>
+                            <span class="badge badge-gst">GST 5%</span>
+                        <% } else if (exp.tax_type === 'HST13') { %>
+                            <span class="badge badge-hst13">HST 13%</span>
+                        <% } else if (exp.tax_type === 'HST15') { %>
+                            <span class="badge badge-hst15">HST 15%</span>
+                        <% } else { %>
+                            <span class="badge badge-none">None</span>
+                        <% } %>
+                    </div>
+                </td>
+                <td style="font-weight: 700; color: var(--primary);">$<%= parseFloat(exp.total_amount).toFixed(2) %></td>
+                <td>
+                    <% if (exp.receipt_photo_path) { %>
+                        <button class="btn btn-outline btn-sm" onclick="viewReceipt('<%= exp.receipt_photo_path %>')">
+                            <i class="fa-solid fa-image"></i> View
+                        </button>
+                    <% } else { %>
+                        <span style="color: var(--text-light);">—</span>
+                    <% } %>
+                </td>
+                <td>
+                    <% if (exp.status === 'approved') { %>
+                        <span class="badge" style="background:var(--accent); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-check"></i> Approved</span>
+                        <% if (exp.approved_at) { %>
+                            <% 
+                                let formattedApprovedAt = '';
+                                try {
+                                    const appDate = new Date(exp.approved_at);
+                                    const yyyy = appDate.getFullYear();
+                                    const mm = String(appDate.getMonth() + 1).padStart(2, '0');
+                                    const dd = String(appDate.getDate()).padStart(2, '0');
+                                    const hh = String(appDate.getHours()).padStart(2, '0');
+                                    const min = String(appDate.getMinutes()).padStart(2, '0');
+                                    formattedApprovedAt = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+                                } catch (e) {
+                                    formattedApprovedAt = exp.approved_at;
+                                }
+                            %>
+                            <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.35rem; font-weight: 500; line-height: 1.3;">
+                                <div><i class="fa-regular fa-calendar-check" style="font-size: 0.65rem;"></i> <%= formattedApprovedAt %></div>
+                                <% if (exp.approved_by_name) { %>
+                                    <div style="margin-top: 2px; color: var(--text);"><i class="fa-solid fa-user-shield" style="font-size: 0.65rem; color: var(--accent);"></i> <%= exp.approved_by_name %></div>
+                                <% } %>
+                            </div>
+                        <% } %>
+                    <% } else if (exp.status === 'rejected') { %>
+                        <span class="badge" style="background:var(--danger); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>
+                        <% if (exp.rejection_reason) { %>
+                            <div style="font-size: 0.7rem; color: var(--danger); margin-top: 0.25rem; font-weight: 500; max-width: 150px; white-space: normal; word-break: break-word;">
+                                <strong>Reason:</strong> <%= exp.rejection_reason %>
+                            </div>
+                        <% } %>
+                    <% } else { %>
+                        <span class="badge" style="background:var(--warning); color:#fff; font-size:.72rem;"><i class="fa-solid fa-clock"></i> Pending</span>
+                    <% } %>
+                </td>
+                <td style="text-align: right;">
+                    <!-- Approval actions -->
+                    <% if (exp.status === 'pending') { %>
+                    <div style="display: inline-flex; gap: 0.35rem; justify-content: flex-end;">
+                        <form action="/admin/expense/<%= exp.id %>/status" method="POST" style="display:inline;">
+                            <input type="hidden" name="status" value="approved">
+                            <button type="submit" class="btn btn-accent btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.72rem;">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-sm" onclick="openRejectModal('<%= exp.id %>')" style="background:var(--danger-light); color:var(--danger); border:none; padding: 0.25rem 0.5rem; font-size: 0.72rem; cursor: pointer;">
+                            <i class="fa-solid fa-xmark"></i> Reject
+                        </button>
+                    </div>
+                    <% } else { %>
+                        <form action="/admin/expense/<%= exp.id %>/status" method="POST" style="display:inline;">
+                            <input type="hidden" name="status" value="pending">
+                            <button type="submit" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.35rem; font-size: 0.68rem; height: 24px;">
+                                Reset to Pending
+                            </button>
+                        </form>
+                    <% } %>
+                </td>
+            </tr>
+            <% }) %>
+        </tbody>
+    </table>
+</div>
