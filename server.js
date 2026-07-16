@@ -2176,8 +2176,11 @@ app.post('/admin/groups/:id/members/add', requireAuth, requireAdmin, async (req,
     const { user_id } = req.body;
     if (!user_id) return res.redirect('/admin/groups?error=' + encodeURIComponent('Select a user.'));
     try {
-        const ign = dbMode === 'mysql' ? 'INSERT IGNORE INTO' : 'INSERT OR IGNORE INTO';
-        await dbQuery(`${ign} group_members (group_id, user_id) VALUES (?, ?)`, [req.params.id, user_id]);
+        const [existing] = await dbQuery('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?', [req.params.id, user_id]);
+        if (existing && existing.length > 0) {
+            return res.redirect('/admin/groups?success=' + encodeURIComponent('Member already in group.'));
+        }
+        await dbQuery('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)', [req.params.id, user_id]);
         res.redirect('/admin/groups?success=' + encodeURIComponent('Member added.'));
     } catch (e) {
         console.error(e);
