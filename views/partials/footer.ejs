@@ -1,5 +1,95 @@
         </main>
 
+        <% if (user) { %>
+        <!-- Mobile Bottom Navigation Bar -->
+        <div class="mobile-bottom-nav">
+            <!-- Home Tab -->
+            <a href="/dashboard" class="mobile-nav-item <%= (locals.activePage === 'dashboard' && (locals.activeView === 'history' || !locals.activeView)) ? 'active' : '' %>">
+                <i class="fa-solid fa-house"></i>
+                <span>Home</span>
+            </a>
+
+            <!-- Gas or Reports/Limits Tab -->
+            <% if (user.role === 'admin' || user.role === 'accounting' || user.role === 'approver') { %>
+                <a href="/admin/reports" class="mobile-nav-item <%= locals.activePage === 'reports' ? 'active' : '' %>">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Reports</span>
+                </a>
+            <% } else if (locals.hasGasCard) { %>
+                <a href="/gas-expenses?view=history" class="mobile-nav-item <%= locals.activePage === 'gas-expenses' ? 'active' : '' %>">
+                    <i class="fa-solid fa-gas-pump"></i>
+                    <span>Gas</span>
+                </a>
+            <% } else { %>
+                <a href="/dashboard?view=account" class="mobile-nav-item <%= (locals.activePage === 'dashboard' && locals.activeView === 'account') ? 'active' : '' %>">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <span>Limits</span>
+                </a>
+            <% } %>
+
+            <!-- Add Button Tab (Triggers Drawer) -->
+            <button type="button" class="mobile-nav-item mobile-nav-add-btn" id="mobileAddBtn">
+                <div class="add-icon-wrapper">
+                    <i class="fa-solid fa-plus"></i>
+                </div>
+                <span>File Claim</span>
+            </button>
+
+            <!-- Notifications Tab -->
+            <button type="button" class="mobile-nav-item" id="mobileNotifTabBtn" style="position: relative;">
+                <i class="fa-solid fa-bell"></i>
+                <span>Alerts</span>
+                <% if (locals.unreadNotificationsCount > 0) { %>
+                    <span class="mobile-notif-badge"><%= locals.unreadNotificationsCount %></span>
+                <% } %>
+            </button>
+
+            <!-- Sidebar Menu Toggle Tab -->
+            <button type="button" class="mobile-nav-item" id="mobileMenuTabBtn">
+                <i class="fa-solid fa-bars"></i>
+                <span>Menu</span>
+            </button>
+        </div>
+
+        <!-- Mobile Bottom Slide-up Drawer for Add Actions -->
+        <div class="mobile-drawer-overlay" id="mobileDrawerOverlay">
+            <div class="mobile-drawer" id="mobileDrawer">
+                <div class="mobile-drawer-handle"></div>
+                <div class="mobile-drawer-header">
+                    <h3>New Expense Claim</h3>
+                    <button class="mobile-drawer-close" id="mobileDrawerCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="mobile-drawer-body">
+                    <a href="/dashboard?view=add-reimb" class="drawer-action-item">
+                        <div class="action-icon reimb"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                        <div class="action-details">
+                            <span class="action-title">Add Reimbursement</span>
+                            <span class="action-desc">Out-of-pocket cash or personal card expense</span>
+                        </div>
+                    </a>
+                    <% if (user.card_last_digits && user.card_last_digits !== 'None') { %>
+                        <a href="/dashboard?view=add-cc" class="drawer-action-item">
+                            <div class="action-icon cc"><i class="fa-solid fa-credit-card"></i></div>
+                            <div class="action-details">
+                                <span class="action-title">Add Credit Card Expense</span>
+                                <span class="action-desc">Transactions on your company credit card</span>
+                            </div>
+                        </a>
+                    <% } %>
+                    <% if (locals.hasGasCard) { %>
+                        <a href="/gas-expenses?view=add-form" class="drawer-action-item">
+                            <div class="action-icon gas"><i class="fa-solid fa-gas-pump"></i></div>
+                            <div class="action-details">
+                                <span class="action-title">Add Gas Expense</span>
+                                <span class="action-desc">Fuel transactions with vehicle job tracking</span>
+                            </div>
+                        </a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
         <footer>
             &copy; <%= new Date().getFullYear() %> Sargtech Technologies &mdash; Expense Reporting Platform &mdash; All data encrypted and securely stored.
         </footer>
@@ -57,6 +147,48 @@ function closeNotifModal() {
 if (notifClose) notifClose.addEventListener('click', closeNotifModal);
 if (notifModal) notifModal.addEventListener('click', e => { if (e.target === notifModal) closeNotifModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNotifModal(); });
+
+// ── Mobile Bottom Navigation & Slide-up Drawer Controls
+const mobileAddBtn = document.getElementById('mobileAddBtn');
+const mobileDrawerOverlay = document.getElementById('mobileDrawerOverlay');
+const mobileDrawerCloseBtn = document.getElementById('mobileDrawerCloseBtn');
+
+if (mobileAddBtn && mobileDrawerOverlay) {
+    mobileAddBtn.addEventListener('click', () => {
+        mobileDrawerOverlay.classList.add('open');
+    });
+}
+
+function closeMobileDrawer() {
+    if (mobileDrawerOverlay) {
+        mobileDrawerOverlay.classList.remove('open');
+    }
+}
+
+if (mobileDrawerCloseBtn) mobileDrawerCloseBtn.addEventListener('click', closeMobileDrawer);
+if (mobileDrawerOverlay) mobileDrawerOverlay.addEventListener('click', (e) => {
+    if (e.target === mobileDrawerOverlay) closeMobileDrawer();
+});
+
+// Alerts button on mobile bottom nav
+const mobileNotifTabBtn = document.getElementById('mobileNotifTabBtn');
+if (mobileNotifTabBtn && notifModal) {
+    mobileNotifTabBtn.addEventListener('click', () => {
+        notifModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    });
+}
+
+// Menu button on mobile bottom nav (opens main sidebar)
+const mobileMenuTabBtn = document.getElementById('mobileMenuTabBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+if (mobileMenuTabBtn && sidebar && sidebarOverlay) {
+    mobileMenuTabBtn.addEventListener('click', () => {
+        sidebar.classList.add('open');
+        sidebarOverlay.classList.add('open');
+    });
+}
 </script>
 </body>
 </html>

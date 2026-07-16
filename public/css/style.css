@@ -842,7 +842,257 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
 
     .main-wrapper.has-sidebar {
         margin-top: 0;
+        padding-bottom: 80px; /* Leave room for bottom nav */
+    }
+
+    /* ═══ MOBILE BOTTOM NAVIGATION ═══ */
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 68px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+        z-index: 999;
+        justify-content: space-around;
+        align-items: center;
+        padding: 0 0.5rem;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .mobile-nav-item {
+        background: none;
+        border: none;
+        outline: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        height: 100%;
+        color: var(--text-muted);
+        text-decoration: none;
+        font-family: var(--font);
+        font-size: 0.7rem;
+        font-weight: 500;
+        gap: 0.25rem;
+        cursor: pointer;
+        transition: color var(--transition);
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .mobile-nav-item i {
+        font-size: 1.25rem;
+        transition: transform var(--transition);
+    }
+    
+    .mobile-nav-item:hover, .mobile-nav-item.active {
+        color: var(--primary);
+    }
+    
+    .mobile-nav-item.active i {
+        transform: scale(1.1);
+    }
+
+    /* Specialty Add Button */
+    .mobile-nav-add-btn {
+        position: relative;
+        top: -12px;
+        flex: 0 0 70px;
+        height: 70px;
+        background: transparent;
+        z-index: 1000;
+    }
+    
+    .mobile-nav-add-btn span {
+        margin-top: 4px;
+        font-weight: 600;
+        color: var(--primary);
+    }
+
+    .add-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 115, 234, 0.35);
+        border: 3px solid var(--surface);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .mobile-nav-add-btn:active .add-icon-wrapper {
+        transform: scale(0.92);
+        box-shadow: 0 2px 6px rgba(0, 115, 234, 0.2);
+    }
+
+    .add-icon-wrapper i {
+        font-size: 1.4rem !important;
+        transform: none !important;
+    }
+
+    /* Badges */
+    .mobile-notif-badge {
+        position: absolute;
+        top: 6px;
+        right: 25%;
+        background: var(--danger);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 99px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 2px solid var(--surface);
+    }
+
+    /* DRAWER STYLES */
+    .mobile-drawer-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+        z-index: 2000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--transition), visibility var(--transition);
+    }
+    
+    .mobile-drawer-overlay.open {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .mobile-drawer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        padding: 1.25rem;
+        padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .mobile-drawer-overlay.open .mobile-drawer {
+        transform: translateY(0);
+    }
+
+    .mobile-drawer-handle {
+        width: 36px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 99px;
+        margin: 0 auto;
+    }
+
+    .mobile-drawer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .mobile-drawer-header h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+    }
+    
+    .mobile-drawer-close {
+        background: var(--border-light);
+        border: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    .mobile-drawer-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+    }
+
+    .drawer-action-item {
+        display: flex;
+        align-items: center;
+        padding: 0.875rem 1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius);
+        text-decoration: none;
+        color: var(--text);
+        gap: 1rem;
+        transition: background var(--transition), border-color var(--transition);
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .drawer-action-item:active {
+        background: var(--primary-light);
+        border-color: var(--primary);
+    }
+
+    .action-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+    }
+    
+    .action-icon.reimb { background: #E6F2FF; color: #0073EA; }
+    .action-icon.cc { background: #EBF9F1; color: #00C875; }
+    .action-icon.gas { background: #FFF3E6; color: #FDAB3D; }
+
+    .action-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    
+    .action-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .action-desc {
+        font-size: 0.75rem;
+        color: var(--text-muted);
     }
 }
+
+/* Desktop default hidden states */
+.mobile-bottom-nav {
+    display: none;
+}
+.mobile-drawer-overlay {
+    display: none;
+}
+
 
 
