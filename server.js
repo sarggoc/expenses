@@ -3,6 +3,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
 const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -37,9 +38,42 @@ const dbConfig = {
 
 let dbMode = 'sqlite';
 let pool = null;
+let pgPool = null;
 let sqliteDb = null;
 
+function translateSql(sql) {
+    let converted = sql;
+    // Replace INSERT IGNORE or INSERT OR IGNORE with ON CONFLICT DO NOTHING
+    converted = converted.replace(/INSERT\s+(?:OR\s+)?IGNORE\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i, (match, table, cols, vals) => {
+        const conflictCol = table.toLowerCase() === 'settings' ? 'key_name' : (table.toLowerCase() === 'job_numbers' ? 'job_number' : (table.toLowerCase() === 'card_whitelist' ? 'card_digits' : 'id'));
+        return `INSERT INTO ${table} (${cols}) VALUES (${vals}) ON CONFLICT (${conflictCol}) DO NOTHING`;
+    });
+    
+    // Replace backticks with double quotes
+    converted = converted.replace(/`/g, '"');
+    
+    // Replace ? placeholders with $1, $2, $3...
+    let index = 1;
+    converted = converted.replace(/\?/g, () => `$${index++}`);
+    return converted;
+}
+
 async function dbQuery(sql, params = []) {
+    if (dbMode === 'postgres') {
+        const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+        let converted = translateSql(sql);
+        
+        if (isInsert && !converted.toUpperCase().includes('RETURNING')) {
+            converted += ' RETURNING id';
+        }
+        
+        const res = await pgPool.query(converted, params);
+        if (isInsert) {
+            const insertId = res.rows[0]?.id || null;
+            return [{ insertId, affectedRows: res.rowCount }, null];
+        }
+        return [res.rows, null];
+    }
     if (dbMode === 'mysql') return await pool.query(sql, params);
     return new Promise((resolve, reject) => {
         const t = sql.trim().toUpperCase();
@@ -221,7 +255,227 @@ async function initSQLite() {
     console.log('SQLite ready.');
 }
 
+async function initPostgres() {
+    const pemPath = path.join(__dirname, 'global-bundle.pem');
+    let ssl = false;
+    if (fs.existsSync(pemPath)) {
+        ssl = {
+            rejectUnauthorized: true,
+            ca: fs.readFileSync(pemPath).toString()
+        };
+        console.log('Postgres: SSL configured using global-bundle.pem');
+    } else {
+        console.warn('Postgres: global-bundle.pem not found. Connecting with self-signed SSL configuration.');
+        ssl = { rejectUnauthorized: false };
+    }
+
+    const pgConfig = {
+        host: process.env.PGHOST || process.env.NODE_DB_HOST || '127.0.0.1',
+        port: parseInt(process.env.PGPORT || process.env.NODE_DB_PORT) || 5432,
+        user: process.env.PGUSER || process.env.NODE_DB_USER || 'asargeant',
+        password: process.env.PGPASSWORD || process.env.NODE_DB_PASSWORD || 'Aaden8899$',
+        database: process.env.PGDATABASE || process.env.NODE_DB_NAME || 'expenses',
+        ssl: ssl
+    };
+
+    console.log(`Connecting to PostgreSQL at ${pgConfig.host}:${pgConfig.port}...`);
+    pgPool = new Pool(pgConfig);
+
+    // Test connection
+    const client = await pgPool.connect();
+    console.log('PostgreSQL connected successfully.');
+    client.release();
+
+    // Create tables
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(50) NOT NULL,
+        last_name VARCHAR(50) NOT NULL,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        card_last_digits VARCHAR(4) NOT NULL,
+        role VARCHAR(20) NOT NULL DEFAULT 'user',
+        spending_limit DECIMAL(10,2) DEFAULT NULL,
+        reimbursement_cap DECIMAL(10,2) DEFAULT NULL,
+        profile_photo_path VARCHAR(255) DEFAULT NULL,
+        division_id INTEGER DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS supervisors (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100),
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS job_numbers (
+        id SERIAL PRIMARY KEY,
+        job_number VARCHAR(50) NOT NULL UNIQUE,
+        description VARCHAR(200),
+        active INTEGER NOT NULL DEFAULT 1,
+        pending_confirmation INTEGER DEFAULT 0,
+        submitted_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS expenses (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        store_name VARCHAR(100) NOT NULL,
+        transaction_id VARCHAR(100) NOT NULL,
+        date DATE NOT NULL,
+        job_number VARCHAR(50),
+        supervisor VARCHAR(100),
+        description TEXT,
+        receipt_photo_path VARCHAR(255),
+        total_amount DECIMAL(10,2) NOT NULL,
+        tax_type VARCHAR(20) NOT NULL,
+        tax_amount DECIMAL(10,2) NOT NULL,
+        net_amount DECIMAL(10,2) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        payment_type VARCHAR(20) NOT NULL DEFAULT 'Reimbursement',
+        rejection_reason VARCHAR(255) DEFAULT NULL,
+        fees_json TEXT,
+        void_reason TEXT,
+        wbs_code VARCHAR(50),
+        expense_type VARCHAR(50),
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        approved_at TIMESTAMP DEFAULT NULL,
+        approved_by INTEGER,
+        voided_at TIMESTAMP DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS settings (
+        key_name VARCHAR(50) PRIMARY KEY,
+        value_name VARCHAR(255) NOT NULL
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS card_whitelist (
+        id SERIAL PRIMARY KEY,
+        card_digits VARCHAR(4) NOT NULL UNIQUE,
+        label VARCHAR(100),
+        expiry_date VARCHAR(20),
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS groups (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description VARCHAR(255),
+        approver_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message VARCHAR(500) NOT NULL,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        expense_id INTEGER REFERENCES expenses(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS group_members (
+        group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(20) NOT NULL DEFAULT 'member',
+        PRIMARY KEY (group_id, user_id)
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS expense_logs (
+        id SERIAL PRIMARY KEY,
+        expense_id INTEGER NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+        user_id INTEGER,
+        action VARCHAR(50) NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS divisions (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS gas_cards (
+        id SERIAL PRIMARY KEY,
+        card_number VARCHAR(50) NOT NULL UNIQUE,
+        card_type VARCHAR(50) NOT NULL,
+        expiry_date VARCHAR(20) NOT NULL,
+        truck_assigned VARCHAR(50),
+        user_id INTEGER DEFAULT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS gas_expenses (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        gas_card_id INTEGER NOT NULL REFERENCES gas_cards(id) ON DELETE CASCADE,
+        store_name VARCHAR(100) NOT NULL,
+        transaction_id VARCHAR(100) NOT NULL,
+        date DATE NOT NULL,
+        job_number VARCHAR(50),
+        net_amount DECIMAL(10,2) NOT NULL,
+        tax_amount DECIMAL(10,2) NOT NULL,
+        fees_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+        total_amount DECIMAL(10,2) NOT NULL,
+        liters_in_tank DECIMAL(10,2) NOT NULL,
+        description TEXT,
+        receipt_photo_path VARCHAR(255),
+        status VARCHAR(20) NOT NULL DEFAULT 'valid',
+        contested_reason TEXT,
+        rebuttal_reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS reimbursement_types (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        wbs_code VARCHAR(50) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    console.log('PostgreSQL schema initialized.');
+}
+
 async function initDB() {
+    const dbType = process.env.DB_TYPE || process.env.NODE_DB_TYPE || '';
+    if (dbType.toLowerCase() === 'postgres' || process.env.PGHOST) {
+        try {
+            await initPostgres();
+            dbMode = 'postgres';
+            console.log('PostgreSQL connected.');
+            
+            const defaults = [['supervisor_required','true'],['job_number_required','true'],['spending_limit','0']];
+            for (const [k, v] of defaults) {
+                try {
+                    await dbQuery(`INSERT INTO settings (key_name,value_name) VALUES (?,?) ON CONFLICT (key_name) DO NOTHING`, [k, v]);
+                } catch (e) {}
+            }
+            
+            try {
+                const [rows] = await dbQuery("SELECT id FROM users WHERE username='admin' LIMIT 1");
+                if (!rows.length) {
+                    const hash = await bcrypt.hash('adminpassword123', 10);
+                    await dbQuery(`INSERT INTO users (first_name,last_name,username,email,password_hash,card_last_digits,role) VALUES (?,?,?,?,?,?,?)`,
+                        ['System','Administrator','admin','admin@sargtech.com',hash,'9999','admin']);
+                    console.log('Admin seeded: username=admin password=adminpassword123');
+                }
+            } catch (e) { console.error('Seed error:', e.message); }
+            
+            await syncSupervisorsToUsers();
+            return;
+        } catch (pgErr) {
+            console.warn('Postgres connection failed, falling back to MySQL/SQLite. Reason:', pgErr.message);
+        }
+    }
+
     try {
         console.log(`Trying MySQL: ${dbConfig.user}@${dbConfig.host}/${dbConfig.database}...`);
         const t = await mysql.createConnection({ ...dbConfig, connectTimeout: 5000 });
