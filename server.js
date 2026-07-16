@@ -275,7 +275,8 @@ async function initPostgres() {
         user: process.env.PGUSER || process.env.NODE_DB_USER || 'asargeant',
         password: process.env.PGPASSWORD || process.env.NODE_DB_PASSWORD || 'Aaden8899$',
         database: process.env.PGDATABASE || process.env.NODE_DB_NAME || 'expenses',
-        ssl: ssl
+        ssl: ssl,
+        connectionTimeoutMillis: 3000
     };
 
     console.log(`Connecting to PostgreSQL at ${pgConfig.host}:${pgConfig.port}...`);
@@ -3344,7 +3345,11 @@ function runDatabaseBackup() {
 setInterval(runDatabaseBackup, 6 * 60 * 60 * 1000);
 setTimeout(runDatabaseBackup, 5000);
 
-app.listen(PORT, async () => {
-    await initDB();
-    console.log(`\n🚀 Sargtech Expenses → http://localhost:${PORT}\n`);
+initDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`\n🚀 Sargtech Expenses → http://localhost:${PORT}\n`);
+    });
+}).catch(err => {
+    console.error('Fatal database initialization error:', err);
+    process.exit(1);
 });
