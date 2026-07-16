@@ -2099,6 +2099,7 @@ app.get('/admin/settings/cards', requireAuth, requireAdmin, async (req, res) => 
 });
 
 app.post('/admin/settings', requireAuth, requireAdmin, upload.single('logo_image'), async (req, res) => {
+    req.body = req.body || {};
     const sup   = req.body.supervisor_required  === 'true' ? 'true' : 'false';
     const job   = req.body.job_number_required  === 'true' ? 'true' : 'false';
     const limit = parseFloat(req.body.spending_limit) || 0;
