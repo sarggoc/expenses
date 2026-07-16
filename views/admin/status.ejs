@@ -163,4 +163,51 @@
 
 </div>
 
+<!-- AUTOMATED BACKUPS -->
+<div class="panel" style="margin-top: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-file-shield"></i> Automated Database Backups</h2>
+    </div>
+    <div class="panel-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+            <div>
+                <table class="table" style="width: 100%;">
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600; width: 45%;">Backup Interval</td>
+                            <td>Every <strong><%= backupsInfo.intervalHours %></strong> hours</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Last Backup Run</td>
+                            <td style="color: var(--success); font-weight: 600;"><i class="fa-solid fa-clock"></i> <%= backupsInfo.lastTime %></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Next Scheduled Run</td>
+                            <td style="color: var(--info); font-weight: 600;"><i class="fa-solid fa-calendar-alt"></i> <%= backupsInfo.nextTime %></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <table class="table" style="width: 100%;">
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600; width: 45%;">Total Stored Backups</td>
+                            <td><span class="badge" style="background: var(--primary-light); color: var(--primary); border: none; font-weight: 600;"><%= backupsInfo.count %> files</span></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Latest Backup File</td>
+                            <td style="font-family: monospace; font-size: 0.82rem; word-break: break-all;"><%= backupsInfo.lastFile %></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Latest File Size</td>
+                            <td style="font-weight: 600;"><%= backupsInfo.lastSize %></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <%- include('../partials/footer') %>

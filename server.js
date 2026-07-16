@@ -40,6 +40,8 @@ let dbMode = 'sqlite';
 let pool = null;
 let pgPool = null;
 let sqliteDb = null;
+let lastBackupTime = null;
+let nextBackupTime = null;
 
 function translateSql(sql) {
     let converted = sql;
@@ -1705,6 +1707,39 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
             sslPemExists: fs.existsSync(path.join(__dirname, 'global-bundle.pem')) ? 'Found' : 'Missing'
         };
 
+        // Backup statistics
+        const backupDir = path.join(__dirname, 'backups');
+        let backupCount = 0;
+        let lastBackupFile = 'None';
+        let lastBackupSize = '0 KB';
+        
+        if (fs.existsSync(backupDir)) {
+            const files = fs.readdirSync(backupDir).filter(f => f.startsWith('backup_'));
+            backupCount = files.length;
+            if (backupCount > 0) {
+                files.sort((a, b) => {
+                    return fs.statSync(path.join(backupDir, b)).mtime.getTime() - fs.statSync(path.join(backupDir, a)).mtime.getTime();
+                });
+                lastBackupFile = files[0];
+                try {
+                    const statsObj = fs.statSync(path.join(backupDir, lastBackupFile));
+                    lastBackupSize = (statsObj.size / 1024).toFixed(2) + ' KB';
+                    if (!lastBackupTime) {
+                        lastBackupTime = statsObj.mtime;
+                    }
+                } catch (err) {}
+            }
+        }
+
+        const backupsInfo = {
+            intervalHours: (parseInt(process.env.BACKUP_INTERVAL_HOURS) || 6),
+            lastTime: lastBackupTime ? lastBackupTime.toLocaleString() : 'Never',
+            nextTime: nextBackupTime ? nextBackupTime.toLocaleString() : 'Pending',
+            count: backupCount,
+            lastFile: lastBackupFile,
+            lastSize: lastBackupSize
+        };
+
         res.render('admin/status', {
             title: 'System & Database Status',
             dbMode,
@@ -1720,6 +1755,7 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
             memoryUsage: memoryUsage.toFixed(2),
             stats,
             configChecks,
+            backupsInfo,
             error: null,
             success: null
         });
@@ -3324,25 +3360,68 @@ app.post('/profile/edit', requireAuth, (req, res) => {
 // 404
 app.use((req, res) => res.status(404).render('error', { title:'404', message:'Page not found.', user: req.session.user || null }));
 
-// SQLite Daily Backup every 6 hours
+const BACKUP_INTERVAL = (parseInt(process.env.BACKUP_INTERVAL_HOURS) || 6) * 60 * 60 * 1000;
+
+async function backupPostgresData(backupDir) {
+    try {
+        const tables = ['users', 'supervisors', 'job_numbers', 'expenses', 'settings', 'card_whitelist', 'groups', 'notifications', 'group_members', 'expense_logs', 'divisions', 'gas_cards', 'gas_expenses', 'reimbursement_types'];
+        const backupData = {};
+        
+        for (const table of tables) {
+            try {
+                const [rows] = await dbQuery(`SELECT * FROM "${table}"`);
+                backupData[table] = rows;
+            } catch (e) {
+                // Table might not exist yet
+            }
+        }
+        
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(backupDir, `backup_postgres_${timestamp}.json`);
+        
+        fs.writeFile(backupPath, JSON.stringify(backupData, null, 2), (err) => {
+            if (err) {
+                console.error('PostgreSQL database backup failed:', err);
+            } else {
+                lastBackupTime = new Date();
+                console.log('PostgreSQL database backup created successfully:', backupPath);
+            }
+        });
+    } catch (e) {
+        console.error('PostgreSQL backup data extraction failed:', e);
+    }
+}
+
 function runDatabaseBackup() {
     const backupDir = path.join(__dirname, 'backups');
     if (!fs.existsSync(backupDir)) {
         try { fs.mkdirSync(backupDir, { recursive: true }); } catch (e) { console.error('Failed to create backup dir:', e); }
     }
-    const dbPath = path.join(__dirname, 'sargtech_expenses.sqlite');
-    if (!fs.existsSync(dbPath)) return;
+    
+    nextBackupTime = new Date(Date.now() + BACKUP_INTERVAL);
 
-    const now = new Date();
-    const timestamp = now.toISOString().replace(/[:.]/g, '-');
-    const backupPath = path.join(backupDir, `backup_${timestamp}.sqlite`);
+    if (dbMode === 'postgres') {
+        backupPostgresData(backupDir);
+    } else {
+        const dbPath = path.join(__dirname, 'sargtech_expenses.sqlite');
+        if (!fs.existsSync(dbPath)) return;
 
-    fs.copyFile(dbPath, backupPath, (err) => {
-        if (err) console.error('Database backup failed:', err);
-        else console.log('Database backup created successfully:', backupPath);
-    });
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(backupDir, `backup_sqlite_${timestamp}.sqlite`);
+
+        fs.copyFile(dbPath, backupPath, (err) => {
+            if (err) {
+                console.error('SQLite database backup failed:', err);
+            } else {
+                lastBackupTime = new Date();
+                console.log('SQLite database backup created successfully:', backupPath);
+            }
+        });
+    }
 }
-setInterval(runDatabaseBackup, 6 * 60 * 60 * 1000);
+setInterval(runDatabaseBackup, BACKUP_INTERVAL);
 setTimeout(runDatabaseBackup, 5000);
 
 initDB().then(() => {
