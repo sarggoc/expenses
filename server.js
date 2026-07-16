@@ -1740,6 +1740,24 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
             lastSize: lastBackupSize
         };
 
+        // Measure database query latency
+        const latencyStart = Date.now();
+        await dbQuery("SELECT 1").catch(() => {});
+        const dbLatency = Date.now() - latencyStart;
+
+        // AWS details
+        let awsRegion = 'N/A';
+        let awsService = 'Local / Fallback';
+        if (dbMode === 'postgres') {
+            awsService = 'AWS RDS (PostgreSQL)';
+            if (dbHost.includes('.rds.amazonaws.com')) {
+                const parts = dbHost.split('.');
+                if (parts.length >= 3) {
+                    awsRegion = parts[2];
+                }
+            }
+        }
+
         res.render('admin/status', {
             title: 'System & Database Status',
             dbMode,
@@ -1756,6 +1774,11 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
             stats,
             configChecks,
             backupsInfo,
+            awsInfo: {
+                region: awsRegion,
+                service: awsService,
+                latency: dbLatency + ' ms'
+            },
             error: null,
             success: null
         });

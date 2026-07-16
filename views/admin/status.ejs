@@ -50,7 +50,7 @@
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
 
     <!-- DATABASE CONFIG & CONNECTIVITY -->
     <div class="panel">
@@ -153,6 +153,53 @@
                         <td>
                             <span class="badge" style="background: <%= configChecks.sslPemExists === 'Found' ? 'var(--success-light)' : 'var(--danger-light)' %>; color: <%= configChecks.sslPemExists === 'Found' ? 'var(--success)' : 'var(--danger)' %>; border: none; font-weight: 600;">
                                 <%= configChecks.sslPemExists %>
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- AWS CLOUD INTEGRATION -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-brands fa-aws" style="color: #FF9900;"></i> AWS Infrastructure</h2>
+        </div>
+        <div class="panel-body">
+            <table class="table" style="width: 100%;">
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 600; width: 45%;">Cloud Provider</td>
+                        <td>
+                            <span style="font-weight: 600;"><i class="fa-brands fa-aws" style="color: #FF9900;"></i> Amazon Web Services</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">AWS Service</td>
+                        <td><%= awsInfo.service %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">AWS Region</td>
+                        <td>
+                            <span class="badge" style="background: var(--primary-light); color: var(--primary); border: none; font-weight: 600; text-transform: uppercase;">
+                                <%= awsInfo.region %>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">DB Response Latency</td>
+                        <td>
+                            <span style="font-weight: 600; color: <%= parseInt(awsInfo.latency) < 150 ? 'var(--success)' : 'var(--warning)' %>;">
+                                <i class="fa-solid fa-gauge-high"></i> <%= awsInfo.latency %>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Network Route</td>
+                        <td>
+                            <span class="badge" style="background: <%= awsInfo.service.includes('RDS') ? 'var(--success-light)' : 'var(--border-light)' %>; color: <%= awsInfo.service.includes('RDS') ? 'var(--success)' : 'var(--text)' %>; border: none; font-weight: 600;">
+                                <%= awsInfo.service.includes('RDS') ? 'Public IGW Route Active' : 'Offline / Loopback' %>
                             </span>
                         </td>
                     </tr>
