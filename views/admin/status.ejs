@@ -1,5 +1,37 @@
 <%- include('../partials/header', { title: title }) %>
 
+<style>
+    /* Scope styling to status panels to override global table rules */
+    .status-panel-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .status-panel-table tbody tr {
+        border-left: none !important;
+        background: transparent !important;
+        transition: none !important;
+    }
+    .status-panel-table tbody tr:nth-child(even) {
+        background: transparent !important;
+    }
+    .status-panel-table tbody tr:hover td {
+        background: transparent !important;
+    }
+    .status-panel-table tbody td {
+        padding: 0.75rem 0.25rem !important;
+        border-bottom: 1px solid var(--border-light) !important;
+        background: transparent !important;
+        vertical-align: middle !important;
+        font-size: 0.85rem !important;
+    }
+    .status-panel-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+</style>
+
 <div class="admin-page-header">
     <div>
         <h1 class="admin-page-title"><i class="fa-solid fa-server"></i> System &amp; <span>Database Status</span></h1>
@@ -58,41 +90,41 @@
             <h2 class="panel-title"><i class="fa-solid fa-database"></i> Database Connection</h2>
         </div>
         <div class="panel-body" style="padding: 1rem;">
-            <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+            <table class="status-panel-table">
                 <tbody>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; width: 45%; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Database Dialect</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                    <tr>
+                        <td style="font-weight: 600; width: 45%; color: var(--text-muted);">Database Dialect</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: <%= dbMode === 'postgres' ? 'var(--primary)' : (dbMode === 'mysql' ? 'var(--info)' : 'var(--warning)') %>; color: white; border: none; font-size: 0.75rem; padding: 0.2rem 0.5rem;">
                                 <%= dbMode.toUpperCase() %>
                             </span>
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Status</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--success); font-weight: 600;">
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Status</td>
+                        <td style="text-align: right; color: var(--success); font-weight: 600;">
                             <i class="fa-solid fa-circle-check"></i> Connected
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Host Endpoint</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.82rem; border: none; text-align: right; font-family: monospace; word-break: break-all; color: var(--text);"><%= dbHost %></td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Port</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--text);"><%= dbPort %></td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Username</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--text);"><%= dbUser %></td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Database Name</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--text);"><%= dbName %></td>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Host Endpoint</td>
+                        <td style="text-align: right; font-family: monospace; word-break: break-all; color: var(--text);"><%= dbHost %></td>
                     </tr>
                     <tr>
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">SSL Mode</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                        <td style="font-weight: 600; color: var(--text-muted);">Port</td>
+                        <td style="text-align: right; color: var(--text);"><%= dbPort %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Username</td>
+                        <td style="text-align: right; color: var(--text);"><%= dbUser %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Database Name</td>
+                        <td style="text-align: right; color: var(--text);"><%= dbName %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">SSL Mode</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: <%= sslStatus.includes('Enabled') ? 'var(--success-light)' : 'var(--border-light)' %>; color: <%= sslStatus.includes('Enabled') ? 'var(--success)' : 'var(--text)' %>; border: 1px solid var(--border); font-size: 0.75rem; padding: 0.2rem 0.5rem; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                 <%= sslStatus.includes('AWS PKI') ? 'SSL Verified' : sslStatus %>
                             </span>
@@ -109,43 +141,43 @@
             <h2 class="panel-title"><i class="fa-solid fa-heartbeat"></i> Server Diagnostics</h2>
         </div>
         <div class="panel-body" style="padding: 1rem;">
-            <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+            <table class="status-panel-table">
                 <tbody>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; width: 45%; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">System Uptime</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--text);"><%= uptime %></td>
+                    <tr>
+                        <td style="font-weight: 600; width: 45%; color: var(--text-muted);">System Uptime</td>
+                        <td style="text-align: right; color: var(--text);"><%= uptime %></td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Memory Usage</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--text); font-weight: 600;"><%= memoryUsage %> MB <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">heap</span></td>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Memory Usage</td>
+                        <td style="text-align: right; color: var(--text); font-weight: 600;"><%= memoryUsage %> MB <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">heap</span></td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Node.js Version</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; font-family: monospace; color: var(--text);"><%= nodeVersion %></td>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Node.js Version</td>
+                        <td style="text-align: right; font-family: monospace; color: var(--text);"><%= nodeVersion %></td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Platform / OS</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; text-transform: capitalize; color: var(--text);"><%= platform %></td>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Platform / OS</td>
+                        <td style="text-align: right; text-transform: capitalize; color: var(--text);"><%= platform %></td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Gemini AI Engine</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Gemini AI Engine</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: <%= configChecks.geminiApiKey.includes('Active') ? 'var(--primary-light)' : 'var(--danger-light)' %>; color: <%= configChecks.geminiApiKey.includes('Active') ? 'var(--primary)' : 'var(--danger)' %>; border: none; font-size: 0.75rem; padding: 0.2rem 0.5rem; font-weight: 600;">
                                 <%= configChecks.geminiApiKey.includes('Active') ? 'Active' : 'Missing' %>
                             </span>
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Session Secret</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">Session Secret</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: <%= configChecks.sessionSecret === 'Configured' ? 'var(--success-light)' : 'var(--warning-light)' %>; color: <%= configChecks.sessionSecret === 'Configured' ? 'var(--success)' : 'var(--warning)' %>; border: none; font-size: 0.75rem; padding: 0.2rem 0.5rem; font-weight: 600;">
                                 <%= configChecks.sessionSecret %>
                             </span>
                         </td>
                     </tr>
                     <tr>
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">RDS CA Bundle</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                        <td style="font-weight: 600; color: var(--text-muted);">RDS CA Bundle</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: <%= configChecks.sslPemExists === 'Found' ? 'var(--success-light)' : 'var(--danger-light)' %>; color: <%= configChecks.sslPemExists === 'Found' ? 'var(--success)' : 'var(--danger)' %>; border: none; font-size: 0.75rem; padding: 0.2rem 0.5rem; font-weight: 600;">
                                 <%= configChecks.sslPemExists %>
                             </span>
@@ -162,37 +194,37 @@
             <h2 class="panel-title"><i class="fa-brands fa-aws" style="color: #FF9900;"></i> AWS Infrastructure</h2>
         </div>
         <div class="panel-body" style="padding: 1rem;">
-            <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+            <table class="status-panel-table">
                 <tbody>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; width: 45%; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Cloud Provider</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; font-weight: 600; color: var(--text);">
+                    <tr>
+                        <td style="font-weight: 600; width: 45%; color: var(--text-muted);">Cloud Provider</td>
+                        <td style="text-align: right; font-weight: 600; color: var(--text);">
                             <i class="fa-brands fa-aws" style="color: #FF9900;"></i> AWS
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">AWS Service</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right; color: var(--text);"><%= awsInfo.service %></td>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">AWS Service</td>
+                        <td style="text-align: right; color: var(--text);"><%= awsInfo.service %></td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">AWS Region</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">AWS Region</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: var(--primary-light); color: var(--primary); border: none; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; padding: 0.2rem 0.5rem;">
                                 <%= awsInfo.region %>
                             </span>
                         </td>
                     </tr>
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">DB Latency</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-muted);">DB Latency</td>
+                        <td style="text-align: right;">
                             <span style="font-weight: 600; color: <%= parseInt(awsInfo.latency) < 150 ? 'var(--success)' : 'var(--warning)' %>;">
                                 <i class="fa-solid fa-gauge-high"></i> <%= awsInfo.latency %>
                             </span>
                         </td>
                     </tr>
                     <tr>
-                        <td style="font-weight: 600; padding: 0.75rem 0.25rem; font-size: 0.85rem; color: var(--text-muted); border: none;">Network Route</td>
-                        <td style="padding: 0.75rem 0.25rem; font-size: 0.85rem; border: none; text-align: right;">
+                        <td style="font-weight: 600; color: var(--text-muted);">Network Route</td>
+                        <td style="text-align: right;">
                             <span class="badge" style="background: <%= awsInfo.service.includes('RDS') ? 'var(--success-light)' : 'var(--border-light)' %>; color: <%= awsInfo.service.includes('RDS') ? 'var(--success)' : 'var(--text)' %>; border: none; font-weight: 600; font-size: 0.75rem; padding: 0.2rem 0.5rem;">
                                 <%= awsInfo.service.includes('RDS') ? 'IGW Active' : 'Offline / Local' %>
                             </span>
@@ -213,37 +245,37 @@
     <div class="panel-body">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
             <div>
-                <table class="table" style="width: 100%;">
+                <table class="status-panel-table">
                     <tbody>
                         <tr>
-                            <td style="font-weight: 600; width: 45%;">Backup Interval</td>
-                            <td>Every <strong><%= backupsInfo.intervalHours %></strong> hours</td>
+                            <td style="font-weight: 600; width: 45%; color: var(--text-muted);">Backup Interval</td>
+                            <td style="text-align: right;">Every <strong><%= backupsInfo.intervalHours %></strong> hours</td>
                         </tr>
                         <tr>
-                            <td style="font-weight: 600;">Last Backup Run</td>
-                            <td style="color: var(--success); font-weight: 600;"><i class="fa-solid fa-clock"></i> <%= backupsInfo.lastTime %></td>
+                            <td style="font-weight: 600; color: var(--text-muted);">Last Backup Run</td>
+                            <td style="text-align: right; color: var(--success); font-weight: 600;"><i class="fa-solid fa-clock"></i> <%= backupsInfo.lastTime %></td>
                         </tr>
                         <tr>
-                            <td style="font-weight: 600;">Next Scheduled Run</td>
-                            <td style="color: var(--info); font-weight: 600;"><i class="fa-solid fa-calendar-alt"></i> <%= backupsInfo.nextTime %></td>
+                            <td style="font-weight: 600; color: var(--text-muted);">Next Scheduled Run</td>
+                            <td style="text-align: right; color: var(--info); font-weight: 600;"><i class="fa-solid fa-calendar-alt"></i> <%= backupsInfo.nextTime %></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             <div>
-                <table class="table" style="width: 100%;">
+                <table class="status-panel-table">
                     <tbody>
                         <tr>
-                            <td style="font-weight: 600; width: 45%;">Total Stored Backups</td>
-                            <td><span class="badge" style="background: var(--primary-light); color: var(--primary); border: none; font-weight: 600;"><%= backupsInfo.count %> files</span></td>
+                            <td style="font-weight: 600; width: 45%; color: var(--text-muted);">Total Stored Backups</td>
+                            <td style="text-align: right;"><span class="badge" style="background: var(--primary-light); color: var(--primary); border: none; font-weight: 600;"><%= backupsInfo.count %> files</span></td>
                         </tr>
                         <tr>
-                            <td style="font-weight: 600;">Latest Backup File</td>
-                            <td style="font-family: monospace; font-size: 0.82rem; word-break: break-all;"><%= backupsInfo.lastFile %></td>
+                            <td style="font-weight: 600; color: var(--text-muted);">Latest Backup File</td>
+                            <td style="text-align: right; font-family: monospace; font-size: 0.82rem; word-break: break-all; color: var(--text);"><%= backupsInfo.lastFile %></td>
                         </tr>
                         <tr>
-                            <td style="font-weight: 600;">Latest File Size</td>
-                            <td style="font-weight: 600;"><%= backupsInfo.lastSize %></td>
+                            <td style="font-weight: 600; color: var(--text-muted);">Latest File Size</td>
+                            <td style="text-align: right; font-weight: 600; color: var(--text);"><%= backupsInfo.lastSize %></td>
                         </tr>
                     </tbody>
                 </table>
