@@ -11,6 +11,7 @@ const https = require('https');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 require('dotenv').config();
+const { execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1660,6 +1661,48 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
         const platform = process.platform;
         const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024; // MB
         
+        // Git Version & Sync status
+        let runningCommit = 'N/A';
+        let runningCommitMsg = 'N/A';
+        let runningCommitDate = 'N/A';
+        try {
+            runningCommit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+            runningCommitMsg = execSync('git log -1 --pretty=%B', { encoding: 'utf8' }).trim().split('\n')[0];
+            runningCommitDate = execSync('git log -1 --format="%cd (%cr)"', { encoding: 'utf8' }).trim();
+        } catch (e) {
+            // Fail silently
+        }
+
+        let githubCommit = 'N/A';
+        let deploymentStatus = 'Unknown';
+        try {
+            const response = await fetch('https://api.github.com/repos/sarggoc/expenses/commits/main', {
+                headers: { 'User-Agent': 'Sargtech-Expenses-Server' },
+                signal: AbortSignal.timeout(2000)
+            });
+            if (response.ok) {
+                const data = await response.json();
+                githubCommit = data.sha.substring(0, 7);
+                if (runningCommit !== 'N/A') {
+                    if (runningCommit === githubCommit) {
+                        deploymentStatus = 'Fully Synced (Latest GitHub commit matches active server code)';
+                    } else {
+                        deploymentStatus = `Pending Update (Server is running ${runningCommit}, GitHub is at ${githubCommit})`;
+                    }
+                }
+            }
+        } catch (err) {
+            deploymentStatus = 'Unable to verify (GitHub API unreachable)';
+        }
+
+        const gitInfo = {
+            runningCommit,
+            runningCommitMsg,
+            runningCommitDate,
+            githubCommit,
+            deploymentStatus
+        };
+
         // Database stats
         let dbStatus = 'Disconnected';
         let dbHost = 'N/A';
@@ -1779,12 +1822,91 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
                 service: awsService,
                 latency: dbLatency + ' ms'
             },
+            gitInfo,
             error: null,
             success: null
         });
     } catch (e) {
         console.error(e);
         res.status(500).send('Error loading status page: ' + e.message);
+    }
+});
+
+// ─────────────────────────────────────────────
+//  AWS / DATABASE MASTER DATA EXPLORER
+// ─────────────────────────────────────────────
+app.get('/admin/master-data', requireAuth, requireAdmin, async (req, res) => {
+    res.locals.activePage = 'master-data';
+    const selectedTable = req.query.table || '';
+
+    try {
+        let tables = [];
+        // Fetch list of tables
+        if (dbMode === 'postgres') {
+            const result = await dbQuery(`
+                SELECT table_name AS name 
+                FROM information_schema.tables 
+                WHERE table_schema='public' AND table_type='BASE TABLE'
+                ORDER BY table_name ASC
+            `);
+            tables = result[0] || [];
+        } else if (dbMode === 'mysql') {
+            const result = await dbQuery('SHOW TABLES');
+            const rows = result[0] || [];
+            tables = rows.map(r => {
+                const keys = Object.keys(r);
+                return { name: r[keys[0]] };
+            });
+        } else {
+            // SQLite
+            const result = await dbQuery("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+            tables = result[0] || [];
+        }
+
+        let columns = [];
+        let rows = [];
+
+        if (selectedTable) {
+            // Security check: ensure the table name is valid and exists in our list
+            const tableExists = tables.some(t => t.name === selectedTable);
+            if (!tableExists) {
+                return res.redirect('/admin/master-data?error=' + encodeURIComponent('Invalid table selected.'));
+            }
+
+            // Fetch columns
+            if (dbMode === 'postgres') {
+                const colResult = await dbQuery(`
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema='public' AND table_name = ?
+                    ORDER BY ordinal_position ASC
+                `, [selectedTable]);
+                columns = (colResult[0] || []).map(c => c.column_name);
+            } else if (dbMode === 'mysql') {
+                const colResult = await dbQuery(`DESCRIBE \`${selectedTable}\``);
+                columns = (colResult[0] || []).map(c => c.Field);
+            } else {
+                const colResult = await dbQuery(`PRAGMA table_info(\`${selectedTable}\`)`);
+                columns = (colResult[0] || []).map(c => c.name);
+            }
+
+            // Fetch rows (limit to 300)
+            const rowResult = await dbQuery(`SELECT * FROM "${selectedTable}" LIMIT 300`);
+            rows = rowResult[0] || [];
+        }
+
+        res.render('admin/master_data', {
+            title: 'AWS Master Data Explorer',
+            tables,
+            selectedTable,
+            columns,
+            rows,
+            dbMode,
+            error: req.query.error || null
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Master Data error: ' + e.message);
     }
 });
 

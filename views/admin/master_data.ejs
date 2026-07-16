@@ -1,0 +1,266 @@
+<%- include('../partials/header', { title: title }) %>
+
+<style>
+    /* Scope layout rules for Master Data Explorer */
+    .md-container {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+        margin-top: 1rem;
+    }
+    
+    @media (max-width: 900px) {
+        .md-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .table-list-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .table-list-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--surface);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        color: var(--text);
+        font-weight: 500;
+        transition: all var(--transition);
+    }
+
+    .table-list-item:hover {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        color: var(--primary);
+    }
+
+    .table-list-item.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+    }
+
+    .table-list-item i {
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+
+    .table-list-item.active i {
+        opacity: 1;
+    }
+
+    /* Master Datatable styling */
+    .master-datatable-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-light);
+        background: var(--surface);
+    }
+
+    .master-data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        min-width: 600px;
+    }
+
+    .master-data-table th {
+        background: var(--surface-2);
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        letter-spacing: 0.05em;
+        padding: 0.8rem 1rem;
+        text-align: left;
+        border-bottom: 2px solid var(--border);
+        position: sticky;
+        top: 0;
+    }
+
+    .master-data-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-light);
+        color: var(--text);
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-family: var(--font);
+    }
+
+    .master-data-table tr:hover td {
+        background: var(--primary-light);
+        color: var(--primary-dark);
+    }
+
+    .master-data-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Value type styling */
+    .val-null {
+        color: var(--text-light);
+        font-style: italic;
+        font-size: 0.78rem;
+    }
+    
+    .val-number {
+        color: #FF7089;
+        font-family: monospace;
+    }
+
+    .val-id {
+        font-family: monospace;
+        font-weight: 600;
+        color: var(--primary);
+    }
+</style>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-table-list"></i> AWS <span>Master Data Explorer</span></h1>
+        <p class="admin-page-sub">Direct access to primary tables and schemas hosted in the active cloud database.</p>
+    </div>
+</div>
+
+<% if (error) { %>
+    <div class="alert alert-error">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span><%= error %></span>
+    </div>
+<% } %>
+
+<div class="md-container">
+    
+    <!-- LEFT SIDEBAR: TABLES LIST -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-database"></i> Database Schema</h2>
+        </div>
+        <div class="panel-body" style="padding: 1rem;">
+            <div style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light);">
+                <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;">Active Engine</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--primary); margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-cube"></i> <%= dbMode.toUpperCase() %>
+                </div>
+            </div>
+            
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Select Table</div>
+            <div class="table-list-group">
+                <% if (tables && tables.length > 0) { %>
+                    <% tables.forEach(function(table) { %>
+                        <a href="/admin/master-data?table=<%= table.name %>" class="table-list-item <%= selectedTable === table.name ? 'active' : '' %>">
+                            <span><i class="fa-solid fa-table"></i> &nbsp;<%= table.name %></span>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    <% }); %>
+                <% } else { %>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">No tables found.</p>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT CONTENT: ROW & COLUMN VIEWER -->
+    <div class="panel" style="min-width: 0;">
+        <% if (selectedTable) { %>
+            <div class="panel-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 class="panel-title"><i class="fa-solid fa-list-check"></i> Columns &amp; Rows: <%= selectedTable %></h2>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        Showing top <span id="visibleRowCount"><%= rows.length %></span> rows of <%= rows.length %> entries
+                    </p>
+                </div>
+                <div>
+                    <input type="text" id="tableSearch" placeholder="Search rows..." style="padding: 0.45rem 0.8rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-size: 0.82rem; min-width: 200px; outline: none; background: var(--surface);">
+                </div>
+            </div>
+            
+            <div class="panel-body" style="padding: 0;">
+                <% if (rows && rows.length > 0) { %>
+                    <div class="master-datatable-wrap">
+                        <table class="master-data-table">
+                            <thead>
+                                <tr>
+                                    <% columns.forEach(function(column) { %>
+                                        <th><%= column %></th>
+                                    <% }); %>
+                                </tr>
+                            </thead>
+                            <tbody id="masterTableBody">
+                                <% rows.forEach(function(row) { %>
+                                    <tr>
+                                        <% columns.forEach(function(column) { %>
+                                            <% const val = row[column]; %>
+                                            <% if (val === null || val === undefined) { %>
+                                                <td><span class="val-null">null</span></td>
+                                            <% } else if (column === 'id') { %>
+                                                <td><span class="val-id">#<%= val %></span></td>
+                                            <% } else if (typeof val === 'number') { %>
+                                                <td><span class="val-number"><%= val %></span></td>
+                                            <% } else if (typeof val === 'object') { %>
+                                                <td title="<%= JSON.stringify(val) %>"><%= JSON.stringify(val) %></td>
+                                            <% } else { %>
+                                                <td title="<%= val %>"><%= val %></td>
+                                            <% } %>
+                                        <% }); %>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-inbox" style="font-size: 2.5rem; opacity: 0.3; margin-bottom: 0.75rem; display: block;"></i>
+                        <p>No rows exist in table <strong><%= selectedTable %></strong>.</p>
+                    </div>
+                <% } %>
+            </div>
+        <% } else { %>
+            <div style="padding: 5rem 2rem; text-align: center; color: var(--text-muted);">
+                <i class="fa-solid fa-table" style="font-size: 3rem; opacity: 0.25; margin-bottom: 1rem; display: block; color: var(--primary);"></i>
+                <h3>Select a Database Table</h3>
+                <p style="margin-top: 0.5rem; font-size: 0.88rem; max-width: 420px; margin-left: auto; margin-right: auto;">
+                    Choose a master table from the schema list on the left to view, search, and inspect its active database structure.
+                </p>
+            </div>
+        <% } %>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('tableSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const val = e.target.value.toLowerCase();
+                const rows = document.querySelectorAll('#masterTableBody tr');
+                let count = 0;
+                rows.forEach(row => {
+                    const text = row.innerText.toLowerCase();
+                    if (text.includes(val)) {
+                        row.style.display = '';
+                        count++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                const visibleEl = document.getElementById('visibleRowCount');
+                if (visibleEl) visibleEl.innerText = count;
+            });
+        }
+    });
+</script>
+
+<%- include('../partials/footer') %>

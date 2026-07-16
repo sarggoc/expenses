@@ -238,6 +238,46 @@
 
 </div>
 
+<!-- GIT & AWS DEPLOYMENT SYNC STATUS -->
+<div class="panel" style="margin-top: 1.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-code-commit"></i> Git &amp; AWS Deployment Sync</h2>
+    </div>
+    <div class="panel-body" style="padding: 1rem;">
+        <table class="status-panel-table">
+            <tbody>
+                <tr>
+                    <td style="font-weight: 600; width: 30%; color: var(--text-muted);">Deployment Status</td>
+                    <td style="text-align: right; font-weight: 600; color: <%= gitInfo.deploymentStatus.includes('Fully Synced') ? 'var(--success)' : (gitInfo.deploymentStatus.includes('Pending') ? 'var(--warning)' : 'var(--text)') %>;">
+                        <% if (gitInfo.deploymentStatus.includes('Fully Synced')) { %>
+                            <i class="fa-solid fa-circle-check"></i> <%= gitInfo.deploymentStatus %>
+                        <% } else { %>
+                            <i class="fa-solid fa-triangle-exclamation"></i> <%= gitInfo.deploymentStatus %>
+                        <% } %>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: var(--text-muted);">Active Build Commit</td>
+                    <td style="text-align: right; font-family: monospace; font-size: 0.85rem;">
+                        <a href="https://github.com/sarggoc/expenses/commit/<%= gitInfo.runningCommit %>" target="_blank" style="text-decoration: none; color: var(--primary); font-weight: 600;">
+                            <i class="fa-brands fa-github"></i> <%= gitInfo.runningCommit %>
+                        </a>
+                        <span style="font-family: var(--font); color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;"><%= gitInfo.runningCommitMsg %></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: var(--text-muted);">Build Date</td>
+                    <td style="text-align: right; color: var(--text);"><%= gitInfo.runningCommitDate %></td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: var(--text-muted);">Latest GitHub Commit</td>
+                    <td style="text-align: right; font-family: monospace; font-size: 0.85rem; color: var(--text-muted);"><%= gitInfo.githubCommit %></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- AUTOMATED BACKUPS -->
 <div class="panel" style="margin-top: 1.5rem;">
     <div class="panel-header">
