@@ -46,9 +46,35 @@ let nextBackupTime = null;
 
 function translateSql(sql) {
     let converted = sql;
+
+    // Replace REPLACE INTO or INSERT OR REPLACE INTO settings with ON CONFLICT DO UPDATE
+    converted = converted.replace(/(?:INSERT\s+OR\s+)?REPLACE\s+INTO\s+settings\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i, (match, cols, vals) => {
+        return `INSERT INTO settings (${cols}) VALUES (${vals}) ON CONFLICT (key_name) DO UPDATE SET value_name = EXCLUDED.value_name`;
+    });
+
     // Replace INSERT IGNORE or INSERT OR IGNORE with ON CONFLICT DO NOTHING
     converted = converted.replace(/INSERT\s+(?:OR\s+)?IGNORE\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i, (match, table, cols, vals) => {
-        const conflictCol = table.toLowerCase() === 'settings' ? 'key_name' : (table.toLowerCase() === 'job_numbers' ? 'job_number' : (table.toLowerCase() === 'card_whitelist' ? 'card_digits' : 'id'));
+        const tLower = table.toLowerCase();
+        let conflictCol;
+        if (tLower === 'settings') {
+            conflictCol = 'key_name';
+        } else if (tLower === 'job_numbers') {
+            conflictCol = 'job_number';
+        } else if (tLower === 'card_whitelist') {
+            conflictCol = 'card_digits';
+        } else if (tLower === 'group_members') {
+            conflictCol = 'group_id, user_id';
+        } else if (tLower === 'gas_cards') {
+            conflictCol = 'card_number';
+        } else if (tLower === 'divisions') {
+            conflictCol = 'name';
+        } else if (tLower === 'reimbursement_types') {
+            conflictCol = 'name';
+        } else if (tLower === 'supervisors') {
+            conflictCol = 'email';
+        } else {
+            conflictCol = 'id';
+        }
         return `INSERT INTO ${table} (${cols}) VALUES (${vals}) ON CONFLICT (${conflictCol}) DO NOTHING`;
     });
     
