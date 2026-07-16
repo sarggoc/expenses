@@ -24,12 +24,22 @@
     <aside class="sidebar" id="sidebar">
 
         <!-- Logo -->
-        <div class="sidebar-logo" style="gap: 0.5rem;">
-            <div class="sidebar-logo-icon"><i class="fa-solid fa-wallet"></i></div>
-            <div class="sidebar-logo-text">
-                <span class="logo-brand">Sarg<span>Tech</span></span>
-                <span class="logo-sub">Expenses</span>
-            </div>
+        <div class="sidebar-logo" style="gap: 0.5rem; align-items: center;">
+            <% if (locals.settings && locals.settings.custom_logo_path) { %>
+                <img src="<%= locals.settings.custom_logo_path %>" alt="Logo" class="custom-logo-img" style="max-height: 38px; max-width: 130px; object-fit: contain; border-radius: 4px;">
+            <% } else { %>
+                <div class="sidebar-logo-icon"><i class="fa-solid fa-wallet"></i></div>
+                <div class="sidebar-logo-text">
+                    <% 
+                        let text = (locals.settings && locals.settings.custom_logo_text) ? locals.settings.custom_logo_text : 'SargTech Expenses';
+                        let parts = text.split(' ');
+                        let brand = parts[0] || 'SargTech';
+                        let sub = parts.slice(1).join(' ') || 'Expenses';
+                    %>
+                    <span class="logo-brand"><%= brand %></span>
+                    <span class="logo-sub"><%= sub %></span>
+                </div>
+            <% } %>
             <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar" style="margin-left:auto;">
                 <i class="fa-solid fa-bars"></i>
             </button>
@@ -373,9 +383,19 @@
             <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Menu">
                 <i class="fa-solid fa-bars"></i>
             </button>
-            <div class="mobile-logo">
-                <span class="logo-brand">Sarg<span>Tech</span></span>
-                <span class="logo-sub">Expenses</span>
+            <div class="mobile-logo" style="display: flex; align-items: center;">
+                <% if (locals.settings && locals.settings.custom_logo_path) { %>
+                    <img src="<%= locals.settings.custom_logo_path %>" alt="Logo" class="custom-logo-img" style="max-height: 28px; max-width: 100px; object-fit: contain; border-radius: 4px;">
+                <% } else { %>
+                    <% 
+                        let text = (locals.settings && locals.settings.custom_logo_text) ? locals.settings.custom_logo_text : 'SargTech Expenses';
+                        let parts = text.split(' ');
+                        let brand = parts[0] || 'SargTech';
+                        let sub = parts.slice(1).join(' ') || 'Expenses';
+                    %>
+                    <span class="logo-brand"><%= brand %></span>
+                    <span class="logo-sub"><%= sub %></span>
+                <% } %>
             </div>
             <button class="mobile-notif-btn" id="mobileNotifBtn" aria-label="Notifications">
                 <i class="fa-solid fa-bell"></i>

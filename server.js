@@ -685,14 +685,30 @@ async function syncSupervisorsToUsers() {
 async function getSettings() {
     try {
         const [rows] = await dbQuery('SELECT key_name,value_name FROM settings');
-        const s = { supervisor_required: true, job_number_required: true, spending_limit: 0 };
+        const s = { 
+            supervisor_required: true, 
+            job_number_required: true, 
+            spending_limit: 0,
+            custom_logo_path: '',
+            custom_logo_text: 'SargTech Expenses'
+        };
         rows.forEach(r => {
             if (r.key_name === 'supervisor_required') s.supervisor_required = r.value_name === 'true';
             else if (r.key_name === 'job_number_required') s.job_number_required = r.value_name === 'true';
             else if (r.key_name === 'spending_limit') s.spending_limit = parseFloat(r.value_name) || 0;
+            else if (r.key_name === 'custom_logo_path') s.custom_logo_path = r.value_name || '';
+            else if (r.key_name === 'custom_logo_text') s.custom_logo_text = r.value_name || 'SargTech Expenses';
         });
         return s;
-    } catch (e) { return { supervisor_required: true, job_number_required: true, spending_limit: 0 }; }
+    } catch (e) { 
+        return { 
+            supervisor_required: true, 
+            job_number_required: true, 
+            spending_limit: 0,
+            custom_logo_path: '',
+            custom_logo_text: 'SargTech Expenses'
+        }; 
+    }
 }
 
 async function getDropdowns() {
@@ -846,6 +862,16 @@ app.use(async (req, res, next) => {
     res.locals.activeView  = req.query.view || '';
     res.locals.notifications = [];
     res.locals.unreadNotificationsCount = 0;
+    res.locals.settings = { 
+        supervisor_required: true, 
+        job_number_required: true, 
+        spending_limit: 0,
+        custom_logo_path: '',
+        custom_logo_text: 'SargTech Expenses'
+    };
+    try {
+        res.locals.settings = await getSettings();
+    } catch (e) { /* keep defaults */ }
     
     // Pre-load dropdowns and notifications for all authenticated requests
     if (req.session.user) {
@@ -2072,17 +2098,34 @@ app.get('/admin/settings/cards', requireAuth, requireAdmin, async (req, res) => 
     }
 });
 
-app.post('/admin/settings', requireAuth, requireAdmin, async (req, res) => {
+app.post('/admin/settings', requireAuth, requireAdmin, upload.single('logo_image'), async (req, res) => {
     const sup   = req.body.supervisor_required  === 'true' ? 'true' : 'false';
     const job   = req.body.job_number_required  === 'true' ? 'true' : 'false';
     const limit = parseFloat(req.body.spending_limit) || 0;
+    const logoText = req.body.custom_logo_text || '';
+    
     try {
         const upsert = dbMode === 'mysql' ? 'REPLACE INTO' : 'INSERT OR REPLACE INTO';
         await dbQuery(`${upsert} settings (key_name,value_name) VALUES (?,?)`, ['supervisor_required', sup]);
         await dbQuery(`${upsert} settings (key_name,value_name) VALUES (?,?)`, ['job_number_required', job]);
         await dbQuery(`${upsert} settings (key_name,value_name) VALUES (?,?)`, ['spending_limit', limit.toString()]);
+        
+        if (logoText !== undefined) {
+            await dbQuery(`${upsert} settings (key_name,value_name) VALUES (?,?)`, ['custom_logo_text', logoText.trim()]);
+        }
+        
+        if (req.file) {
+            const logoPath = '/uploads/' + req.file.filename;
+            await dbQuery(`${upsert} settings (key_name,value_name) VALUES (?,?)`, ['custom_logo_path', logoPath]);
+        } else if (req.body.clear_logo_image === 'true') {
+            await dbQuery(`${upsert} settings (key_name,value_name) VALUES (?,?)`, ['custom_logo_path', '']);
+        }
+        
         res.redirect('/admin/settings/general?success='+encodeURIComponent('Settings saved.'));
-    } catch (e) { res.redirect('/admin/settings/general?error='+encodeURIComponent('Failed to save settings.')); }
+    } catch (e) { 
+        console.error(e);
+        res.redirect('/admin/settings/general?error='+encodeURIComponent('Failed to save settings.')); 
+    }
 });
 
 // ─────────────────────────────────────────────

@@ -3,19 +3,20 @@
 <div class="admin-page-header">
     <div>
         <h1 class="admin-page-title"><i class="fa-solid fa-sliders"></i> General <span>Settings</span></h1>
-        <p class="admin-page-sub">Configure form requirements and global spending limits.</p>
+        <p class="admin-page-sub">Configure form requirements, global spending limits, and custom branding.</p>
     </div>
 </div>
 
 <% if (error) { %><div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span></div><% } %>
 <% if (success) { %><div class="alert alert-success"><i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span></div><% } %>
 
-<div class="panel" style="margin-bottom: 1.5rem;">
-    <div class="panel-header">
-        <h2 class="panel-title"><i class="fa-solid fa-sliders"></i> Form Field Requirements &amp; Spending Limit</h2>
-    </div>
-    <div class="panel-body">
-        <form action="/admin/settings" method="POST">
+<form action="/admin/settings" method="POST" enctype="multipart/form-data">
+    <!-- Form Field Requirements & Spending Limit -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-sliders"></i> Form Field Requirements &amp; Spending Limit</h2>
+        </div>
+        <div class="panel-body">
             <div class="settings-row">
                 <label class="toggle-group">
                     <input type="checkbox" name="supervisor_required" value="true" <%= settings.supervisor_required ? 'checked' : '' %>>
@@ -40,12 +41,65 @@
                         <span style="font-size:0.78rem; color:var(--text-muted);">Default fallback limit</span>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm" style="white-space: nowrap;">
-                    <i class="fa-solid fa-save"></i> Save Settings
-                </button>
             </div>
-        </form>
+        </div>
     </div>
-</div>
+
+    <!-- Custom Branding & Logo -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-palette"></i> Custom Branding &amp; Logo</h2>
+        </div>
+        <div class="panel-body">
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <!-- Custom Logo Text -->
+                <div class="form-group" style="max-width: 500px;">
+                    <label for="custom_logo_text" style="display:block; font-weight:600; margin-bottom:.4rem; font-size:.85rem;">
+                        <i class="fa-solid fa-signature" style="color:var(--primary);"></i> &nbsp;Brand Name / Logo Text
+                    </label>
+                    <input type="text" id="custom_logo_text" name="custom_logo_text" 
+                           value="<%= settings.custom_logo_text || 'SargTech Expenses' %>" 
+                           placeholder="e.g. SargTech Expenses"
+                           style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; background: var(--bg-card); color: var(--text);">
+                    <span style="font-size:0.78rem; color:var(--text-muted); display: block; margin-top: 0.25rem;">
+                        This is displayed if no logo image is uploaded. The first word will receive primary brand styling (e.g. "Sarg" in green, "Tech" in gray).
+                    </span>
+                </div>
+
+                <!-- Custom Logo Image -->
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+                    <div class="form-group" style="flex: 1; min-width: 250px;">
+                        <label for="logo_image" style="display:block; font-weight:600; margin-bottom:.4rem; font-size:.85rem;">
+                            <i class="fa-solid fa-image" style="color:var(--success);"></i> &nbsp;Upload Logo Image
+                        </label>
+                        <input type="file" id="logo_image" name="logo_image" accept="image/*"
+                               style="width: 100%; padding:.45rem .7rem; border:1.5px solid var(--border); border-radius:8px; font-size:.95rem; background: var(--bg-card); color: var(--text);">
+                        <span style="font-size:0.78rem; color:var(--text-muted); display: block; margin-top: 0.25rem;">
+                            Supported formats: PNG, JPG, JPEG, SVG, WebP. Recommended height: 40px to 60px.
+                        </span>
+                    </div>
+
+                    <% if (settings.custom_logo_path) { %>
+                    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; border: 1.5px dashed var(--border); padding: 1rem; border-radius: 12px; background: rgba(0,0,0,0.02);">
+                        <span style="font-size:0.78rem; font-weight:600; color:var(--text-light);">Current Logo</span>
+                        <img src="<%= settings.custom_logo_path %>" alt="Current Logo" style="max-height: 48px; max-width: 180px; object-fit: contain; border-radius: 4px;">
+                        <label class="toggle-group" style="margin-top: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="clear_logo_image" value="true">
+                            <span style="font-size:0.8rem; color:var(--danger); font-weight:500;">Remove Logo Image</span>
+                        </label>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Action -->
+    <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; margin-bottom: 2rem;">
+        <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.95rem;">
+            <i class="fa-solid fa-save"></i> Save All Settings
+        </button>
+    </div>
+</form>
 
 <%- include('../partials/footer') %>

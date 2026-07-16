@@ -20,8 +20,20 @@
 
         <!-- Logo -->
         <div class="auth-logo">
-            <div class="auth-logo-icon"><i class="fa-solid fa-wallet"></i></div>
-            <div class="auth-logo-text">Sarg<span>Tech</span> Expenses</div>
+            <% if (locals.settings && locals.settings.custom_logo_path) { %>
+                <img src="<%= locals.settings.custom_logo_path %>" alt="Logo" class="custom-logo-img" style="max-height: 52px; max-width: 200px; object-fit: contain; border-radius: 6px; margin: 0 auto 1.5rem auto; display: block;">
+            <% } else { %>
+                <div class="auth-logo-icon"><i class="fa-solid fa-wallet"></i></div>
+                <div class="auth-logo-text">
+                    <% 
+                        let text = (locals.settings && locals.settings.custom_logo_text) ? locals.settings.custom_logo_text : 'SargTech Expenses';
+                        let parts = text.split(' ');
+                        let brand = parts[0] || 'SargTech';
+                        let sub = parts.slice(1).join(' ') || 'Expenses';
+                    %>
+                    <%= brand %><span><%= sub %></span>
+                </div>
+            <% } %>
         </div>
 
         <!-- Tabs -->
