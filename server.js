@@ -80,7 +80,7 @@ async function dbQuery(sql, params = []) {
     if (dbMode === 'mysql') return await pool.query(sql, params);
     return new Promise((resolve, reject) => {
         const t = sql.trim().toUpperCase();
-        if (t.startsWith('SELECT') || t.startsWith('WITH')) {
+        if (t.startsWith('SELECT') || t.startsWith('WITH') || t.startsWith('PRAGMA')) {
             sqliteDb.all(sql, params, (err, rows) => {
                 if (err) reject(err);
                 else resolve([rows, null]);
