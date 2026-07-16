@@ -89,16 +89,20 @@ function translateSql(sql) {
 
 async function dbQuery(sql, params = []) {
     if (dbMode === 'postgres') {
-        const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
         let converted = translateSql(sql);
+        const isInsert = converted.trim().toUpperCase().startsWith('INSERT');
         
         if (isInsert && !converted.toUpperCase().includes('RETURNING')) {
-            converted += ' RETURNING id';
+            const match = converted.match(/INSERT\s+INTO\s+["`']?(\w+)["`']?/i);
+            const table = match ? match[1].toLowerCase() : '';
+            if (table !== 'group_members' && table !== 'settings') {
+                converted += ' RETURNING id';
+            }
         }
         
         const res = await pgPool.query(converted, params);
         if (isInsert) {
-            const insertId = res.rows[0]?.id || null;
+            const insertId = converted.toUpperCase().includes('RETURNING ID') ? (res.rows[0]?.id || null) : null;
             return [{ insertId, affectedRows: res.rowCount }, null];
         }
         return [res.rows, null];
