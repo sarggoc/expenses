@@ -159,6 +159,12 @@
                 <i class="fa-solid fa-chart-line"></i>
                 <span>Analytics</span>
             </a>
+            <% if (user.role === 'admin') { %>
+            <a href="/admin/status" class="sidebar-link <%= locals.activePage === 'status' ? 'active' : '' %>">
+                <i class="fa-solid fa-server"></i>
+                <span>Status</span>
+            </a>
+            <% } %>
             <% } %>
 
             <% if (user.role === 'admin' || user.role === 'accounting' || user.role === 'approver') { %>

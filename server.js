@@ -1649,6 +1649,98 @@ app.get('/admin', requireAuth, requireAdmin, (req, res) => {
     res.redirect('/admin/settings/general' + query);
 });
 
+app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
+    res.locals.activePage = 'status';
+    try {
+        const uptime = process.uptime();
+        const nodeVersion = process.version;
+        const platform = process.platform;
+        const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024; // MB
+        
+        // Database stats
+        let dbStatus = 'Disconnected';
+        let dbHost = 'N/A';
+        let dbPort = 'N/A';
+        let dbUser = 'N/A';
+        let dbName = 'N/A';
+        let sslStatus = 'Disabled';
+        
+        if (dbMode === 'postgres') {
+            dbStatus = 'Connected (PostgreSQL)';
+            dbHost = process.env.PGHOST || '127.0.0.1';
+            dbPort = process.env.PGPORT || '5432';
+            dbUser = process.env.PGUSER || 'asargeant';
+            dbName = process.env.PGDATABASE || 'postgres';
+            sslStatus = fs.existsSync(path.join(__dirname, 'global-bundle.pem')) ? 'Enabled (AWS PKI SSL Bundle Verified)' : 'Enabled (Self-signed / Unverified)';
+        } else if (dbMode === 'mysql') {
+            dbStatus = 'Connected (MySQL)';
+            dbHost = dbConfig.host;
+            dbPort = dbConfig.port;
+            dbUser = dbConfig.user;
+            dbName = dbConfig.database;
+        } else {
+            dbStatus = 'Connected (SQLite local fallback)';
+            dbName = 'sargtech_expenses.sqlite';
+        }
+        
+        // Count queries
+        const [usersRows] = await dbQuery("SELECT COUNT(*) as count FROM users").catch(() => [[{count: 0}]]);
+        const [expensesRows] = await dbQuery("SELECT COUNT(*) as count FROM expenses").catch(() => [[{count: 0}]]);
+        const [supsRows] = await dbQuery("SELECT COUNT(*) as count FROM supervisors").catch(() => [[{count: 0}]]);
+        const [jobsRows] = await dbQuery("SELECT COUNT(*) as count FROM job_numbers").catch(() => [[{count: 0}]]);
+        const [gasRows] = await dbQuery("SELECT COUNT(*) as count FROM gas_expenses").catch(() => [[{count: 0}]]);
+        
+        const stats = {
+            users: usersRows?.[0]?.count || 0,
+            expenses: expensesRows?.[0]?.count || 0,
+            supervisors: supsRows?.[0]?.count || 0,
+            jobs: jobsRows?.[0]?.count || 0,
+            gasExpenses: gasRows?.[0]?.count || 0
+        };
+
+        const configChecks = {
+            geminiApiKey: process.env.GEMINI_API_KEY ? 'Configured (Active)' : 'Missing',
+            sessionSecret: process.env.SESSION_SECRET ? 'Configured' : 'Default (Insecure)',
+            sslPemExists: fs.existsSync(path.join(__dirname, 'global-bundle.pem')) ? 'Found' : 'Missing'
+        };
+
+        res.render('admin/status', {
+            title: 'System & Database Status',
+            dbMode,
+            dbStatus,
+            dbHost,
+            dbPort,
+            dbUser,
+            dbName,
+            sslStatus,
+            uptime: formatUptime(uptime),
+            nodeVersion,
+            platform,
+            memoryUsage: memoryUsage.toFixed(2),
+            stats,
+            configChecks,
+            error: null,
+            success: null
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Error loading status page: ' + e.message);
+    }
+});
+
+function formatUptime(seconds) {
+    const d = Math.floor(seconds / (3600*24));
+    const h = Math.floor(seconds % (3600*24) / 3600);
+    const m = Math.floor(seconds % 3600 / 60);
+    const s = Math.floor(seconds % 60);
+    
+    const dDisplay = d > 0 ? d + (d === 1 ? " day, " : " days, ") : "";
+    const hDisplay = h > 0 ? h + (h === 1 ? " hour, " : " hours, ") : "";
+    const mDisplay = m > 0 ? m + (m === 1 ? " minute, " : " minutes, ") : "";
+    const sDisplay = s > 0 ? s + (s === 1 ? " second" : " seconds") : "";
+    return dDisplay + hDisplay + mDisplay + sDisplay || "0 seconds";
+}
+
 app.get('/admin/settings/general', requireAuth, requireAdmin, async (req, res) => {
     res.locals.activePage = 'settings-general';
     try {

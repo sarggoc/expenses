@@ -1,0 +1,166 @@
+<%- include('../partials/header', { title: title }) %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-server"></i> System &amp; <span>Database Status</span></h1>
+        <p class="admin-page-sub">Monitor real-time system performance, active database configuration, and API connections.</p>
+    </div>
+</div>
+
+<!-- Database Metrics Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light);">
+        <div style="background: var(--primary-light); color: var(--primary); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+            <i class="fa-solid fa-users"></i>
+        </div>
+        <div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Active Users</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);"><%= stats.users %></div>
+        </div>
+    </div>
+    
+    <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light);">
+        <div style="background: var(--success-light); color: var(--success); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+        </div>
+        <div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Claims</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);"><%= stats.expenses %></div>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light);">
+        <div style="background: var(--warning-light); color: var(--warning); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+            <i class="fa-solid fa-user-tie"></i>
+        </div>
+        <div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Supervisors</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);"><%= stats.supervisors %></div>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light);">
+        <div style="background: var(--info-light); color: var(--info); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+            <i class="fa-solid fa-hashtag"></i>
+        </div>
+        <div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Job Numbers</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);"><%= stats.jobs %></div>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+
+    <!-- DATABASE CONFIG & CONNECTIVITY -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-database"></i> Database Connection</h2>
+        </div>
+        <div class="panel-body">
+            <table class="table" style="width: 100%;">
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 600; width: 40%;">Database Dialect</td>
+                        <td>
+                            <span class="badge" style="background: <%= dbMode === 'postgres' ? 'var(--primary)' : (dbMode === 'mysql' ? 'var(--info)' : 'var(--warning)') %>; color: white; border: none;">
+                                <%= dbMode.toUpperCase() %>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Status</td>
+                        <td style="color: var(--success); font-weight: 600;">
+                            <i class="fa-solid fa-circle-check"></i> <%= dbStatus %>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Host Endpoint</td>
+                        <td style="font-family: monospace; font-size: 0.88rem;"><%= dbHost %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Port</td>
+                        <td><%= dbPort %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Username</td>
+                        <td><%= dbUser %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Database Name</td>
+                        <td><%= dbName %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">SSL Mode</td>
+                        <td>
+                            <span class="badge" style="background: <%= sslStatus.includes('Enabled') ? 'var(--success-light)' : 'var(--border-light)' %>; color: <%= sslStatus.includes('Enabled') ? 'var(--success)' : 'var(--text)' %>; border: 1px solid var(--border);">
+                                <%= sslStatus %>
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SERVER HEALTH & STATISTICS -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title"><i class="fa-solid fa-heartbeat"></i> Server Diagnostics</h2>
+        </div>
+        <div class="panel-body">
+            <table class="table" style="width: 100%;">
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 600; width: 40%;">System Uptime</td>
+                        <td><%= uptime %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Memory Usage</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-weight: 600;"><%= memoryUsage %> MB</span>
+                                <span style="font-size: 0.78rem; color: var(--text-muted);">(heap used)</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Node.js Version</td>
+                        <td><%= nodeVersion %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Platform / OS</td>
+                        <td style="text-transform: capitalize;"><%= platform %></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Gemini AI Engine</td>
+                        <td>
+                            <span class="badge" style="background: <%= configChecks.geminiApiKey.includes('Active') ? 'var(--primary-light)' : 'var(--danger-light)' %>; color: <%= configChecks.geminiApiKey.includes('Active') ? 'var(--primary)' : 'var(--danger)' %>; border: none; font-weight: 600;">
+                                <%= configChecks.geminiApiKey %>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">Session Secret</td>
+                        <td>
+                            <span class="badge" style="background: <%= configChecks.sessionSecret === 'Configured' ? 'var(--success-light)' : 'var(--warning-light)' %>; color: <%= configChecks.sessionSecret === 'Configured' ? 'var(--success)' : 'var(--warning)' %>; border: none; font-weight: 600;">
+                                <%= configChecks.sessionSecret %>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">AWS RDS Root CA Bundle</td>
+                        <td>
+                            <span class="badge" style="background: <%= configChecks.sslPemExists === 'Found' ? 'var(--success-light)' : 'var(--danger-light)' %>; color: <%= configChecks.sslPemExists === 'Found' ? 'var(--success)' : 'var(--danger)' %>; border: none; font-weight: 600;">
+                                <%= configChecks.sslPemExists %>
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<%- include('../partials/footer') %>
