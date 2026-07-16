@@ -2488,33 +2488,53 @@ app.get('/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
             GROUP BY job_number ORDER BY total DESC LIMIT 20`);
 
         // Per-person totals
-        const [perPerson] = await dbQuery(`
-            SELECT u.first_name || ' ' || u.last_name AS name,
-                COUNT(e.id) AS count, COALESCE(SUM(e.total_amount),0) AS total
-            FROM users u LEFT JOIN expenses e ON u.id=e.user_id
-            WHERE u.role != 'admin'
-            GROUP BY u.id ORDER BY total DESC`).catch(async () => {
-            // MySQL version
-            const [r] = await dbQuery(`
+        let perPersonQuery = '';
+        if (dbMode === 'mysql') {
+            perPersonQuery = `
                 SELECT CONCAT(u.first_name,' ',u.last_name) AS name,
                     COUNT(e.id) AS count, COALESCE(SUM(e.total_amount),0) AS total
                 FROM users u LEFT JOIN expenses e ON u.id=e.user_id
                 WHERE u.role != 'admin'
-                GROUP BY u.id ORDER BY total DESC`);
-            return [r];
-        });
+                GROUP BY u.id, u.first_name, u.last_name 
+                ORDER BY total DESC`;
+        } else {
+            // Postgres & SQLite
+            perPersonQuery = `
+                SELECT u.first_name || ' ' || u.last_name AS name,
+                    COUNT(e.id) AS count, COALESCE(SUM(e.total_amount),0) AS total
+                FROM users u LEFT JOIN expenses e ON u.id=e.user_id
+                WHERE u.role != 'admin'
+                GROUP BY u.id, u.first_name, u.last_name 
+                ORDER BY total DESC`;
+        }
+        const [perPerson] = await dbQuery(perPersonQuery);
 
         // Monthly trend (last 6 months)
-        const [monthly] = await dbQuery(`
-            SELECT strftime('%Y-%m', date) AS month, COALESCE(SUM(total_amount),0) AS total
-            FROM expenses WHERE date >= date('now','-6 months')
-            GROUP BY month ORDER BY month ASC`).catch(async () => {
-            const [r] = await dbQuery(`
+        let monthlyQuery = '';
+        if (dbMode === 'postgres') {
+            monthlyQuery = `
+                SELECT to_char(date, 'YYYY-MM') AS month, COALESCE(SUM(total_amount),0) AS total
+                FROM expenses 
+                WHERE date >= CURRENT_DATE - INTERVAL '6 months'
+                GROUP BY to_char(date, 'YYYY-MM') 
+                ORDER BY month ASC`;
+        } else if (dbMode === 'mysql') {
+            monthlyQuery = `
                 SELECT DATE_FORMAT(date,'%Y-%m') AS month, COALESCE(SUM(total_amount),0) AS total
-                FROM expenses WHERE date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-                GROUP BY month ORDER BY month ASC`);
-            return [r];
-        });
+                FROM expenses 
+                WHERE date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                GROUP BY month 
+                ORDER BY month ASC`;
+        } else {
+            // SQLite
+            monthlyQuery = `
+                SELECT strftime('%Y-%m', date) AS month, COALESCE(SUM(total_amount),0) AS total
+                FROM expenses 
+                WHERE date >= date('now','-6 months')
+                GROUP BY month 
+                ORDER BY month ASC`;
+        }
+        const [monthly] = await dbQuery(monthlyQuery);
 
         // Tax type breakdown
         const [byTax] = await dbQuery(`
@@ -2522,16 +2542,19 @@ app.get('/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
             FROM expenses GROUP BY tax_type ORDER BY total DESC`);
 
         // Recent expenses for AI context (last 100)
-        const [recent] = await dbQuery(`
-            SELECT e.*, u.first_name || ' ' || u.last_name AS employee_name
-            FROM expenses e JOIN users u ON e.user_id=u.id
-            ORDER BY e.date DESC LIMIT 100`).catch(async () => {
-            const [r] = await dbQuery(`
+        let recentQuery = '';
+        if (dbMode === 'mysql') {
+            recentQuery = `
                 SELECT e.*, CONCAT(u.first_name,' ',u.last_name) AS employee_name
                 FROM expenses e JOIN users u ON e.user_id=u.id
-                ORDER BY e.date DESC LIMIT 100`);
-            return [r];
-        });
+                ORDER BY e.date DESC LIMIT 100`;
+        } else {
+            recentQuery = `
+                SELECT e.*, u.first_name || ' ' || u.last_name AS employee_name
+                FROM expenses e JOIN users u ON e.user_id=u.id
+                ORDER BY e.date DESC LIMIT 100`;
+        }
+        const [recent] = await dbQuery(recentQuery);
 
         res.render('analytics', {
             title: 'Analytics',
