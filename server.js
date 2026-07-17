@@ -10,6 +10,7 @@ const fs = require('fs');
 const https = require('https');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
+const Tesseract = require('tesseract.js');
 require('dotenv').config();
 const { execSync } = require('child_process');
 
@@ -1053,7 +1054,153 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     }
 });
 
-// AI Receipt Scanner using Gemini 2.0 Flash Multimodal Vision API
+function localParseReceiptText(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    
+    let result = {
+        store_name: 'Unknown Store',
+        transaction_id: 'TXN-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        date: new Date().toISOString().split('T')[0],
+        total_amount: 0.00,
+        tax_type: 'None',
+        net_amount: 0.00,
+        tax_amount: 0.00,
+        fees_amount: 0.00,
+        liters_purchased: 0.00,
+        description: 'Auto-scan (Local OCR Fallback)'
+    };
+
+    if (lines.length === 0) return result;
+
+    // 1. Guess Store Name from first few lines
+    const isAddressOrPhoneOrDate = (str) => {
+        return /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/.test(str) || // phone
+               /\b\d+\s+[A-Za-z]+/.test(str) || // street address
+               /^[0-9:\-\/\s]+$/.test(str) || // dates/times
+               /burnaby|vancouver|calgary|toronto|alberta|columbia|postal|code|way|street|road|ave/i.test(str);
+    };
+
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+        const line = lines[i];
+        if (line.length > 3 && !isAddressOrPhoneOrDate(line)) {
+            result.store_name = line.replace(/[^a-zA-Z0-9\s\-\&]/g, '').trim();
+            break;
+        }
+    }
+
+    // 2. Date extraction (match YYYY-MM-DD, MM/DD/YYYY, etc.)
+    const dateRegex1 = /\b(20\d{2})[-/.](0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])\b/;
+    const dateRegex2 = /\b(0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])[-/.](20\d{2}|\d{2})\b/;
+
+    for (const line of lines) {
+        let m = line.match(dateRegex1);
+        if (m) {
+            result.date = `${m[1]}-${m[2]}-${m[3]}`;
+            break;
+        }
+        m = line.match(dateRegex2);
+        if (m) {
+            let year = m[3];
+            if (year.length === 2) year = '20' + year;
+            result.date = `${year}-${m[1]}-${m[2]}`;
+            break;
+        }
+    }
+
+    // 3. Liters Purchased (e.g. 33.135 L on fuel receipts)
+    const litersRegex = /\b(\d{1,3}[.,]\d{3})\b/;
+    for (const line of lines) {
+        if (/liters|litres|carburant|fuel|gas|litre|ordinare|l\b/i.test(line)) {
+            const m = line.match(litersRegex);
+            if (m) {
+                result.liters_purchased = parseFloat(m[1].replace(',', '.'));
+                break;
+            }
+        }
+    }
+
+    // 4. Find all currency numbers (\d+.\d{2})
+    const numbers = [];
+    const numRegex = /\b(\d+[.,]\d{2})\b/g;
+    for (const line of lines) {
+        let match;
+        while ((match = numRegex.exec(line)) !== null) {
+            const val = parseFloat(match[1].replace(',', '.'));
+            if (!isNaN(val)) numbers.push(val);
+        }
+    }
+
+    // Guess total_amount and tax_amount
+    if (numbers.length > 0) {
+        const sortedNums = [...new Set(numbers)].sort((a, b) => a - b);
+        
+        let totalCandidate = null;
+        for (const line of lines) {
+            if (/total|amount|due|achat|visa|credit/i.test(line) && !/sub|before/i.test(line)) {
+                const m = line.match(/\b(\d+[.,]\d{2})\b/);
+                if (m) {
+                    totalCandidate = parseFloat(m[1].replace(',', '.'));
+                    break;
+                }
+            }
+        }
+
+        result.total_amount = totalCandidate || sortedNums[sortedNums.length - 1];
+
+        // Guess Tax (GST/HST/TPS/TVQ)
+        let taxCandidate = null;
+        for (const line of lines) {
+            if (/gst|hst|tps|tvq|tax|tvh/i.test(line)) {
+                const m = line.match(/\b(\d+[.,]\d{2})\b/);
+                if (m) {
+                    taxCandidate = parseFloat(m[1].replace(',', '.'));
+                    if (/gst|tps/i.test(line)) result.tax_type = 'GST';
+                    else if (/hst|tvh/i.test(line)) {
+                        if (/13/.test(line)) result.tax_type = 'HST13';
+                        else if (/15/.test(line)) result.tax_type = 'HST15';
+                        else result.tax_type = 'HST13';
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (taxCandidate) {
+            result.tax_amount = taxCandidate;
+        } else {
+            result.tax_amount = 0.00;
+        }
+
+        // Guess fuel fees if visible
+        for (const line of lines) {
+            if (/fee|charge/i.test(line)) {
+                const m = line.match(/\b(\d+[.,]\d{2})\b/);
+                if (m) {
+                    result.fees_amount = parseFloat(m[1].replace(',', '.'));
+                    break;
+                }
+            }
+        }
+
+        result.net_amount = parseFloat((result.total_amount - result.tax_amount - result.fees_amount).toFixed(2));
+    }
+
+    // 5. Transaction ID / Reference
+    for (const line of lines) {
+        if (/trans|facture|invoice|inv|receipt|ref|ticket/i.test(line)) {
+            const m = line.match(/\b([A-Z0-9-]{4,15})\b/i);
+            if (m && !/no/i.test(m[1])) {
+                result.transaction_id = m[1].toUpperCase();
+                break;
+            }
+        }
+    }
+
+    result.description = `Auto-scan from ${result.store_name} (Local OCR Fallback)`;
+    return result;
+}
+
+// AI Receipt Scanner using Gemini 2.0 Flash Multimodal Vision API with Local Tesseract.js fallback
 app.post('/expenses/scan-receipt', requireAuth, (req, res, next) => {
     upload.single('receipt_photo')(req, res, err => {
         if (err) return res.status(400).json({ error: err.message });
@@ -1061,15 +1208,18 @@ app.post('/expenses/scan-receipt', requireAuth, (req, res, next) => {
     });
 }, async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        return res.status(400).json({ error: 'No GEMINI_API_KEY set in .env' });
-    }
     if (!req.file) {
         return res.status(400).json({ error: 'No receipt photo uploaded' });
     }
 
     const filePath = req.file.path;
+    let parsedData = null;
+
     try {
+        if (!apiKey) {
+            throw new Error('No GEMINI_API_KEY set in .env');
+        }
+
         const fileBuffer = fs.readFileSync(filePath);
         const base64Data = fileBuffer.toString('base64');
         const mimeType = req.file.mimetype;
@@ -1132,25 +1282,30 @@ app.post('/expenses/scan-receipt', requireAuth, (req, res, next) => {
             request.end();
         });
 
-        // Clean up uploaded temporary scan file
-        try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to clean up scan file:', e); }
-
         const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) {
             console.error('Gemini API response missing text:', JSON.stringify(result));
-            return res.status(500).json({ error: 'No response from Gemini API — check image visibility.' });
+            throw new Error(result?.error?.message || 'No response from Gemini API');
         }
 
-        const parsedData = JSON.parse(text);
-        res.json(parsedData);
+        parsedData = JSON.parse(text);
     } catch (error) {
-        // Clean up file if it exists and error happened
-        if (fs.existsSync(filePath)) {
-            try { fs.unlinkSync(filePath); } catch (e) {}
+        console.warn('Gemini API failed or quota exhausted. Falling back to local OCR (Tesseract.js)... Reason:', error.message);
+        try {
+            const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
+            parsedData = localParseReceiptText(text);
+        } catch (ocrError) {
+            console.error('Local OCR fallback failed:', ocrError);
+            if (fs.existsSync(filePath)) {
+                try { fs.unlinkSync(filePath); } catch (e) {}
+            }
+            return res.status(500).json({ error: 'Receipt scan failed: both Gemini and local OCR engines failed.' });
         }
-        console.error('Scan receipt error:', error);
-        res.status(500).json({ error: 'Receipt scan failed: ' + error.message });
     }
+
+    // Clean up uploaded temporary scan file
+    try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to clean up scan file:', e); }
+    res.json(parsedData);
 });
 
 app.post('/expenses/add', requireAuth, (req, res, next) => {
