@@ -124,6 +124,11 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="odometer">Odometer Reading (km)</label>
+                            <input type="number" id="odometer" name="odometer" placeholder="e.g. 154200" style="width: 100%;" />
+                        </div>
+
                         <div style="background: var(--background); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px dashed var(--border); font-size: 0.82rem; text-align: center;">
                             Total Amount: <strong style="color: var(--primary); font-size: 1.05rem;">$<span id="calculated_total">0.00</span></strong>
                         </div>
@@ -200,6 +205,7 @@
                                         Total <i class="sort-icon fa-solid fa-sort" style="margin-left:0.35rem; opacity:0.4;"></i>
                                     </th>
                                     <th style="text-align: right;">Liters</th>
+                                    <th style="text-align: right;">Odometer</th>
                                     <th>Receipt</th>
                                     <th>Status</th>
                                     <th style="text-align: right;">Actions</th>
@@ -226,6 +232,7 @@
                                         <td style="text-align: right;">$<%= parseFloat(exp.fees_amount || 0).toFixed(2) %></td>
                                         <td style="text-align: right; font-weight: 700; color: var(--text);">$<%= parseFloat(exp.total_amount || 0).toFixed(2) %></td>
                                         <td style="text-align: right;"><%= parseFloat(exp.liters_in_tank || 0).toFixed(1) %> L</td>
+                                        <td style="text-align: right;"><%= exp.odometer ? exp.odometer.toLocaleString() + ' km' : '—' %></td>
                                         <td>
                                             <% if (exp.receipt_photo_path) { %>
                                                 <button class="btn btn-sm btn-outline" style="padding: 0.2rem 0.4rem; font-size: 0.75rem; height: auto;" onclick="viewReceipt('<%= exp.receipt_photo_path %>')">
@@ -296,6 +303,170 @@
                     <div class="empty-state" style="padding: 5rem 0;">
                         <i class="fa-solid fa-gas-pump" style="font-size: 3rem; opacity: 0.2; color: var(--primary); margin-bottom: 1rem; display: block;"></i>
                         <p style="color: var(--text-muted);">No gas expenses recorded yet.</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    <% } else if (locals.activeView === 'reports') { %>
+        <!-- ═══ GAS REPORTS & DIAGNOSTICS VIEW ═══ -->
+        <div class="panel" style="margin-bottom: 2rem;">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="fa-solid fa-chart-line"></i> Gas Cycle Reports &amp; Analytics</h2>
+            </div>
+            <div class="panel-body">
+                <!-- Date Range Selection Form -->
+                <form method="GET" action="/gas-expenses" style="background: var(--background-light); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); margin-bottom: 1.5rem;">
+                    <input type="hidden" name="view" value="reports" />
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto; gap: 1rem; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="start_date" style="font-weight: 600;">Cycle Start Date</label>
+                            <input type="date" id="start_date" name="start_date" value="<%= reportData.startDate %>" required style="width: 100%;" />
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="end_date" style="font-weight: 600;">Cycle End Date</label>
+                            <input type="date" id="end_date" name="end_date" value="<%= reportData.endDate %>" required style="width: 100%;" />
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="margin: 0; padding: 0.65rem 1.25rem;">
+                            <i class="fa-solid fa-rotate"></i> Update Cycle
+                        </button>
+                    </div>
+                </form>
+
+                <% if (reportData.cardsSummary && reportData.cardsSummary.length > 0) { %>
+                    <!-- Cycle KPI Stats -->
+                    <% 
+                        let totalSpend = 0; 
+                        let totalLiters = 0; 
+                        let totalFillups = 0; 
+                        reportData.cardsSummary.forEach(c => {
+                            totalSpend += c.total_amount;
+                            totalLiters += c.total_liters;
+                            totalFillups += c.fillups_count;
+                        });
+                    %>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: var(--background-light); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); border-left: 4px solid var(--primary);">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Cycle Total Spend</div>
+                            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">$<%= totalSpend.toFixed(2) %></div>
+                        </div>
+                        <div style="background: var(--background-light); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); border-left: 4px solid var(--success);">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Cycle Total Fuel</div>
+                            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);"><%= totalLiters.toFixed(1) %> L</div>
+                        </div>
+                        <div style="background: var(--background-light); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); border-left: 4px solid var(--warning);">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Cycle Fill-Ups</div>
+                            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);"><%= totalFillups %> times</div>
+                        </div>
+                        <div style="background: var(--background-light); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-light); border-left: 4px solid var(--danger);">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Active Cards</div>
+                            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);"><%= reportData.cardsSummary.length %> card(s)</div>
+                        </div>
+                    </div>
+
+                    <!-- Card Summary Table -->
+                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Summary Per Card
+                    </h3>
+                    <div class="table-wrap" style="margin-bottom: 2rem;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Card Info</th>
+                                    <th>Assigned User</th>
+                                    <th style="text-align: right;">Fillups</th>
+                                    <th style="text-align: right;">Total Spent</th>
+                                    <th style="text-align: right;">Total Liters</th>
+                                    <th style="text-align: right;">Last Odo</th>
+                                    <th style="text-align: right;">Dist. Travelled</th>
+                                    <th style="text-align: right;">Consumption</th>
+                                    <th style="text-align: right;">Avg. Dist between Fillups</th>
+                                    <th style="text-align: right;">Avg. Hours between Fillups</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% reportData.cardsSummary.forEach(c => { %>
+                                    <tr>
+                                        <td>
+                                            <div style="font-weight: 600; font-size: 0.85rem;">•••• <%= c.card_number.slice(-4) %></div>
+                                            <div style="font-size: 0.72rem; color: var(--text-muted);"><%= c.card_type %> <%= c.truck_assigned ? ' | Truck ' + c.truck_assigned : '' %></div>
+                                        </td>
+                                        <td><strong><%= c.user_name || 'Unassigned' %></strong></td>
+                                        <td style="text-align: right;"><%= c.fillups_count %></td>
+                                        <td style="text-align: right; font-weight: 600; color: var(--text);">$<%= c.total_amount.toFixed(2) %></td>
+                                        <td style="text-align: right;"><%= c.total_liters.toFixed(1) %> L</td>
+                                        <td style="text-align: right;"><%= c.last_odo ? c.last_odo.toLocaleString() + ' km' : '—' %></td>
+                                        <td style="text-align: right;"><%= c.total_distance ? c.total_distance.toLocaleString() + ' km' : '—' %></td>
+                                        <td style="text-align: right; font-weight: 600; color: var(--primary);">
+                                            <%= c.consumption_rate ? c.consumption_rate.toFixed(1) + ' L/100km' : '—' %>
+                                        </td>
+                                        <td style="text-align: right;"><%= c.avg_distance ? c.avg_distance.toLocaleString() + ' km' : '—' %></td>
+                                        <td style="text-align: right;"><%= c.avg_hours ? c.avg_hours + ' hrs' : '—' %></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Diagnostic Odometer Segment Log -->
+                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-gauge" style="color: var(--warning);"></i> Diagnostic Fill-Up Log (Chronological Details)
+                    </h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; margin-top: -0.25rem;">
+                        Shows the mileage and duration segment tracking between consecutive fill-ups of the same card.
+                    </p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Card Info</th>
+                                    <th>Date &amp; Vendor</th>
+                                    <th>Driver</th>
+                                    <th style="text-align: right;">Total Amount</th>
+                                    <th style="text-align: right;">Liters</th>
+                                    <th style="text-align: right;">Odometer Reading</th>
+                                    <th style="text-align: right;">Distance (Segment)</th>
+                                    <th style="text-align: right;">Duration (Segment)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% reportData.diagnosticLog.forEach(exp => { %>
+                                    <tr>
+                                        <td>
+                                            <div style="font-weight: 600; font-size: 0.85rem;">•••• <%= exp.card_number.slice(-4) %></div>
+                                            <div style="font-size: 0.72rem; color: var(--text-muted);"><%= exp.card_type %></div>
+                                        </td>
+                                        <td>
+                                            <div style="font-weight: 600; font-size: 0.85rem;"><%= exp.store_name %></div>
+                                            <div style="font-size: 0.72rem; color: var(--text-muted);"><%= exp.date %></div>
+                                        </td>
+                                        <td><strong><%= exp.user_name %></strong></td>
+                                        <td style="text-align: right; font-weight: 600;">$<%= parseFloat(exp.total_amount || 0).toFixed(2) %></td>
+                                        <td style="text-align: right;"><%= parseFloat(exp.liters_in_tank || 0).toFixed(1) %> L</td>
+                                        <td style="text-align: right;"><%= exp.odometer ? exp.odometer.toLocaleString() + ' km' : '—' %></td>
+                                        <td style="text-align: right;">
+                                            <% if (exp.distance_diff !== null) { %>
+                                                <span style="color: var(--success); font-weight: 600;"><i class="fa-solid fa-arrow-trend-up"></i> +<%= exp.distance_diff.toLocaleString() %> km</span>
+                                            <% } else { %>
+                                                <span style="color: var(--text-muted); font-size: 0.8rem;">— (First / No Odo)</span>
+                                            <% } %>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <% if (exp.hours_diff !== null) { %>
+                                                <span style="color: var(--primary); font-weight: 600;"><i class="fa-solid fa-clock"></i> +<%= exp.hours_diff %> hrs</span>
+                                                <div style="font-size: 0.65rem; color: var(--text-muted);">(<%= (exp.hours_diff / 24).toFixed(1) %> days)</div>
+                                            <% } else { %>
+                                                <span style="color: var(--text-muted); font-size: 0.8rem;">—</span>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state" style="padding: 4rem 0;">
+                        <i class="fa-solid fa-calendar-xmark" style="font-size: 3rem; opacity: 0.2; color: var(--primary); margin-bottom: 1rem; display: block;"></i>
+                        <p style="color: var(--text-muted);">No gas expenses found for the selected cycle dates.</p>
                     </div>
                 <% } %>
             </div>

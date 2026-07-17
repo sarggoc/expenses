@@ -75,7 +75,7 @@
             </div>
 
             <!-- Gas Expenses Dropdown -->
-            <% if (locals.hasGasCard) { %>
+            <% if (locals.hasGasCard || user.role === 'admin' || user.role === 'accounting') { %>
             <div class="sidebar-dropdown <%= locals.activePage === 'gas-expenses' ? 'open' : '' %>">
                 <a href="#" class="sidebar-link sidebar-dropdown-toggle">
                     <i class="fa-solid fa-gas-pump"></i>
@@ -83,15 +83,22 @@
                     <i class="fa-solid fa-chevron-down dropdown-arrow" style="margin-left: auto; font-size: 0.75rem; transition: transform 0.2s;"></i>
                 </a>
                 <div class="sidebar-dropdown-menu">
-                    <a href="/gas-expenses?view=cards" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'cards' ? 'active' : '' %>">
-                        <i class="fa-solid fa-credit-card"></i> Active Gas Cards
-                    </a>
-                    <a href="/gas-expenses?view=add-form" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'add-form' ? 'active' : '' %>">
-                        <i class="fa-solid fa-circle-plus"></i> Add Gas Expense
-                    </a>
+                    <% if (locals.hasGasCard) { %>
+                        <a href="/gas-expenses?view=cards" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'cards' ? 'active' : '' %>">
+                            <i class="fa-solid fa-credit-card"></i> Active Gas Cards
+                        </a>
+                        <a href="/gas-expenses?view=add-form" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'add-form' ? 'active' : '' %>">
+                            <i class="fa-solid fa-circle-plus"></i> Add Gas Expense
+                        </a>
+                    <% } %>
                     <a href="/gas-expenses?view=history" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && (locals.activeView === 'history' || !locals.activeView) ? 'active' : '' %>">
                         <i class="fa-solid fa-history"></i> Audit &amp; History
                     </a>
+                    <% if (user.role === 'admin' || user.role === 'accounting') { %>
+                        <a href="/gas-expenses?view=reports" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'reports' ? 'active' : '' %>">
+                            <i class="fa-solid fa-chart-line"></i> Gas Reports &amp; Diagnostics
+                        </a>
+                    <% } %>
                 </div>
             </div>
             <% } %>

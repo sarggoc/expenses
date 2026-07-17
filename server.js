@@ -277,6 +277,7 @@ async function initSQLite() {
         fees_amount REAL NOT NULL DEFAULT 0,
         total_amount REAL NOT NULL,
         liters_in_tank REAL NOT NULL,
+        odometer INTEGER,
         description TEXT,
         receipt_photo_path TEXT,
         status TEXT NOT NULL DEFAULT 'valid',
@@ -286,6 +287,7 @@ async function initSQLite() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (gas_card_id) REFERENCES gas_cards(id) ON DELETE CASCADE
     )`); } catch (e) {}
+    try { await runSQLite('ALTER TABLE gas_expenses ADD COLUMN odometer INTEGER'); } catch (e) {}
     console.log('SQLite ready.');
 }
 
@@ -461,6 +463,7 @@ async function initPostgres() {
         fees_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
         total_amount DECIMAL(10,2) NOT NULL,
         liters_in_tank DECIMAL(10,2) NOT NULL,
+        odometer INTEGER,
         description TEXT,
         receipt_photo_path VARCHAR(255),
         status VARCHAR(20) NOT NULL DEFAULT 'valid',
@@ -468,6 +471,12 @@ async function initPostgres() {
         rebuttal_reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    try {
+        await pgPool.query('ALTER TABLE gas_expenses ADD COLUMN IF NOT EXISTS odometer INTEGER');
+    } catch (e) {
+        console.error('Failed to run gas_expenses alter table:', e.message);
+    }
 
     await pgPool.query(`CREATE TABLE IF NOT EXISTS reimbursement_types (
         id SERIAL PRIMARY KEY,
@@ -1067,6 +1076,7 @@ function localParseReceiptText(text) {
         tax_amount: 0.00,
         fees_amount: 0.00,
         liters_purchased: 0.00,
+        odometer: 0,
         description: 'Auto-scan (Local OCR Fallback)'
     };
 
@@ -1117,6 +1127,13 @@ function localParseReceiptText(text) {
                 break;
             }
         }
+    }
+
+    // 3.5. Odometer reading extraction (look for 4-6 digit numbers near odometer labels)
+    const odoRegex = /(?:odometer|odo|kms|km|mileage|reading|millage)[\s\S]{0,15}?(\d{4,6})\b/i;
+    const mOdo = text.match(odoRegex);
+    if (mOdo) {
+        result.odometer = parseInt(mOdo[1]);
     }
 
     // 4. Find all currency numbers (\d+.\d{2})
@@ -1255,6 +1272,7 @@ app.post('/expenses/scan-receipt', requireAuth, (req, res, next) => {
                         tax_amount: { type: "NUMBER" },
                         fees_amount: { type: "NUMBER", description: "Extra fee amount if any, otherwise 0" },
                         liters_purchased: { type: "NUMBER", description: "Liters of fuel/gas if visible, otherwise 0" },
+                        odometer: { type: "INTEGER", description: "Odometer reading in kilometers if visible, otherwise 0" },
                         description: { type: "STRING" }
                     },
                     required: ["store_name", "date", "total_amount", "tax_type"]
@@ -1596,22 +1614,18 @@ app.get('/expenses/:id/logs', requireAuth, async (req, res) => {
             return res.status(403).json({ error: 'Access denied', logs: [] });
         }
 
-        const [logs] = await dbQuery(`
-            SELECT el.*, u.first_name || ' ' || u.last_name AS actor_name
-            FROM expense_logs el
-            LEFT JOIN users u ON el.user_id = u.id
-            WHERE el.expense_id = ?
-            ORDER BY el.created_at DESC
-        `, [req.params.id]).catch(async () => {
-            const [r] = await dbQuery(`
-                SELECT el.*, CONCAT(u.first_name,' ',u.last_name) AS actor_name
-                FROM expense_logs el
-                LEFT JOIN users u ON el.user_id = u.id
-                WHERE el.expense_id = ?
-                ORDER BY el.created_at DESC
-            `, [req.params.id]);
-            return [r];
-        });
+        const sql = dbMode === 'mysql'
+            ? `SELECT el.*, CONCAT(u.first_name, ' ', u.last_name) AS actor_name
+               FROM expense_logs el
+               LEFT JOIN users u ON el.user_id = u.id
+               WHERE el.expense_id = ?
+               ORDER BY el.created_at DESC`
+            : `SELECT el.*, (u.first_name || ' ' || u.last_name) AS actor_name
+               FROM expense_logs el
+               LEFT JOIN users u ON el.user_id = u.id
+               WHERE el.expense_id = ?
+               ORDER BY el.created_at DESC`;
+        const [logs] = await dbQuery(sql).catch(() => [[]]);
         res.json({ logs: logs || [] });
     } catch (e) { console.error(e); res.status(500).json({ logs: [] }); }
 });
@@ -1635,7 +1649,7 @@ app.get('/gas-expenses', requireAuth, async (req, res) => {
     res.locals.activePage = 'gas-expenses';
     
     // Check if user has an active gas card or is admin/accounting
-    if (!res.locals.hasGasCard) {
+    if (!res.locals.hasGasCard && req.session.user.role !== 'admin' && req.session.user.role !== 'accounting') {
         return res.status(403).render('error', { title: 'Access Denied', message: 'You do not have an active gas card assigned to you.', user: req.session.user });
     }
 
@@ -1652,37 +1666,151 @@ app.get('/gas-expenses', requireAuth, async (req, res) => {
             myGasCards = userCards;
         }
 
+        const activeView = req.query.view || '';
         let gasExpenses = [];
-        if (req.session.user.role === 'admin' || req.session.user.role === 'accounting' || req.session.user.role === 'approver' || req.session.user.role === 'pm') {
-            const [allExpenses] = await dbQuery(dbMode === 'mysql'
-                ? `SELECT ge.*, gc.card_number, gc.card_type, CONCAT(u.first_name, ' ', u.last_name) AS user_name 
+        let reportData = {
+            startDate: req.query.start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            endDate: req.query.end_date || new Date().toISOString().split('T')[0],
+            cardsSummary: [],
+            diagnosticLog: []
+        };
+
+        if (activeView === 'reports' && (req.session.user.role === 'admin' || req.session.user.role === 'accounting')) {
+            // Fetch all expenses chronologically by card for calculation
+            const querySql = dbMode === 'mysql'
+                ? `SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned, CONCAT(u.first_name, ' ', u.last_name) AS user_name 
                    FROM gas_expenses ge 
                    JOIN gas_cards gc ON ge.gas_card_id = gc.id 
                    JOIN users u ON ge.user_id = u.id 
-                   ORDER BY ge.date DESC`
-                : `SELECT ge.*, gc.card_number, gc.card_type, (u.first_name || ' ' || u.last_name) AS user_name 
+                   ORDER BY ge.gas_card_id ASC, ge.date ASC, ge.created_at ASC`
+                : `SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned, (u.first_name || ' ' || u.last_name) AS user_name 
                    FROM gas_expenses ge 
                    JOIN gas_cards gc ON ge.gas_card_id = gc.id 
                    JOIN users u ON ge.user_id = u.id 
-                   ORDER BY ge.date DESC`
-            ).catch(() => [[]]);
-            gasExpenses = allExpenses;
+                   ORDER BY ge.gas_card_id ASC, ge.date ASC, ge.created_at ASC`;
+            const [rawAll] = await dbQuery(querySql).catch(() => [[]]);
+
+            // Calculate distance & hours differences in chronological sequence per card
+            const cardsMap = {};
+            rawAll.forEach(exp => {
+                const cardId = exp.gas_card_id;
+                if (!cardsMap[cardId]) cardsMap[cardId] = [];
+                cardsMap[cardId].push(exp);
+            });
+
+            const processedExpenses = [];
+            Object.keys(cardsMap).forEach(cardId => {
+                const list = cardsMap[cardId];
+                for (let i = 0; i < list.length; i++) {
+                    const exp = list[i];
+                    exp.distance_diff = null;
+                    exp.hours_diff = null;
+                    if (i > 0) {
+                        const prev = list[i - 1];
+                        if (exp.odometer && prev.odometer) {
+                            exp.distance_diff = exp.odometer - prev.odometer;
+                        }
+                        const tCurr = new Date(exp.created_at || exp.date);
+                        const tPrev = new Date(prev.created_at || prev.date);
+                        const diffMs = tCurr - tPrev;
+                        exp.hours_diff = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
+                    }
+                    processedExpenses.push(exp);
+                }
+            });
+
+            // Filter diagnostic log based on selected cycle dates
+            const start = new Date(reportData.startDate + 'T00:00:00');
+            const end = new Date(reportData.endDate + 'T23:59:59');
+
+            const filteredExpenses = processedExpenses.filter(exp => {
+                const d = new Date(exp.date + 'T12:00:00');
+                return d >= start && d <= end;
+            });
+
+            // Sort diagnosticLog descending by date for display
+            reportData.diagnosticLog = [...filteredExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Generate card-by-card summaries
+            const summaryMap = {};
+            filteredExpenses.forEach(exp => {
+                const cardId = exp.gas_card_id;
+                if (!summaryMap[cardId]) {
+                    summaryMap[cardId] = {
+                        card_number: exp.card_number,
+                        card_type: exp.card_type,
+                        truck_assigned: exp.truck_assigned,
+                        user_name: exp.user_name,
+                        fillups_count: 0,
+                        total_liters: 0,
+                        total_amount: 0,
+                        min_odo: null,
+                        max_odo: null,
+                        last_odo: null,
+                        distances: [],
+                        hours: []
+                    };
+                }
+                const sum = summaryMap[cardId];
+                sum.fillups_count += 1;
+                sum.total_liters += parseFloat(exp.liters_in_tank || 0);
+                sum.total_amount += parseFloat(exp.total_amount || 0);
+                if (exp.odometer) {
+                    if (sum.min_odo === null || exp.odometer < sum.min_odo) sum.min_odo = exp.odometer;
+                    if (sum.max_odo === null || exp.odometer > sum.max_odo) sum.max_odo = exp.odometer;
+                    sum.last_odo = exp.odometer;
+                }
+                if (exp.distance_diff !== null) sum.distances.push(exp.distance_diff);
+                if (exp.hours_diff !== null) sum.hours.push(exp.hours_diff);
+            });
+
+            reportData.cardsSummary = Object.values(summaryMap).map(sum => {
+                const totalDist = sum.max_odo && sum.min_odo ? (sum.max_odo - sum.min_odo) : 0;
+                const avgDist = sum.distances.length ? Math.round(sum.distances.reduce((a,b)=>a+b, 0) / sum.distances.length) : null;
+                const avgHours = sum.hours.length ? parseFloat((sum.hours.reduce((a,b)=>a+b, 0) / sum.hours.length).toFixed(1)) : null;
+                const consumption = totalDist > 0 ? parseFloat(((sum.total_liters / totalDist) * 100).toFixed(2)) : null; // L/100km
+                return {
+                    ...sum,
+                    total_distance: totalDist,
+                    avg_distance: avgDist,
+                    avg_hours: avgHours,
+                    consumption_rate: consumption
+                };
+            });
         } else {
-            const [userExpenses] = await dbQuery(
-                `SELECT ge.*, gc.card_number, gc.card_type 
-                 FROM gas_expenses ge 
-                 JOIN gas_cards gc ON ge.gas_card_id = gc.id 
-                 WHERE ge.user_id = ? 
-                 ORDER BY ge.date DESC`, [req.session.user.id]
-            ).catch(() => [[]]);
-            gasExpenses = userExpenses;
+            // Standard user gas expenses fetching
+            if (req.session.user.role === 'admin' || req.session.user.role === 'accounting' || req.session.user.role === 'approver' || req.session.user.role === 'pm') {
+                const [allExpenses] = await dbQuery(dbMode === 'mysql'
+                    ? `SELECT ge.*, gc.card_number, gc.card_type, CONCAT(u.first_name, ' ', u.last_name) AS user_name 
+                       FROM gas_expenses ge 
+                       JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                       JOIN users u ON ge.user_id = u.id 
+                       ORDER BY ge.date DESC`
+                    : `SELECT ge.*, gc.card_number, gc.card_type, (u.first_name || ' ' || u.last_name) AS user_name 
+                       FROM gas_expenses ge 
+                       JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                       JOIN users u ON ge.user_id = u.id 
+                       ORDER BY ge.date DESC`
+                ).catch(() => [[]]);
+                gasExpenses = allExpenses;
+            } else {
+                const [userExpenses] = await dbQuery(
+                    `SELECT ge.*, gc.card_number, gc.card_type 
+                     FROM gas_expenses ge 
+                     JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                     WHERE ge.user_id = ? 
+                     ORDER BY ge.date DESC`, [req.session.user.id]
+                ).catch(() => [[]]);
+                gasExpenses = userExpenses;
+            }
         }
 
         res.render('gas_expenses', {
             title: 'Gas Card Expenses',
             myGasCards,
             gasExpenses,
-            activeView: req.query.view || '',
+            activeView,
+            reportData,
             error: req.query.error || null,
             success: req.query.success || null
         });
@@ -1702,7 +1830,7 @@ app.post('/gas-expenses/add', requireAuth, async (req, res) => {
     upload.single('receipt_photo')(req, res, async err => {
         if (err) return res.redirect('/gas-expenses?view=history&error=' + encodeURIComponent(err.message));
         
-        const { gas_card_id, store_name, transaction_id, date, job_number, job_number_manual, net_amount, tax_amount, fees_amount, description } = req.body;
+        const { gas_card_id, store_name, transaction_id, date, job_number, job_number_manual, net_amount, tax_amount, fees_amount, odometer, description } = req.body;
         
         if (!gas_card_id || !store_name?.trim() || !transaction_id?.trim() || !date || !net_amount) {
             return res.redirect('/gas-expenses?view=history&error=' + encodeURIComponent('Please fill in all required fields.'));
@@ -1721,6 +1849,7 @@ app.post('/gas-expenses/add', requireAuth, async (req, res) => {
             const tax = parseFloat(tax_amount || 0);
             const fees = parseFloat(fees_amount || 0);
             const total = net + tax + fees;
+            const odo = odometer ? parseInt(odometer) : null;
             const photoPath = req.file ? `/uploads/${req.file.filename}` : null;
             // Sanitize: if dropdown sentinel '__manual__' was submitted without a manual value, treat as null
             const rawJob = job_number === '__manual__' ? null : job_number?.trim();
@@ -1742,9 +1871,9 @@ app.post('/gas-expenses/add', requireAuth, async (req, res) => {
             }
 
             await dbQuery(
-                `INSERT INTO gas_expenses (user_id, gas_card_id, store_name, transaction_id, date, job_number, net_amount, tax_amount, fees_amount, total_amount, liters_in_tank, description, receipt_photo_path, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid')`,
-                [req.session.user.id, gas_card_id, store_name.trim(), transaction_id.trim(), date, jobNum, net, tax, fees, total, parseFloat(req.body.liters_in_tank || 0), description?.trim() || null, photoPath]
+                `INSERT INTO gas_expenses (user_id, gas_card_id, store_name, transaction_id, date, job_number, net_amount, tax_amount, fees_amount, total_amount, liters_in_tank, odometer, description, receipt_photo_path, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid')`,
+                [req.session.user.id, gas_card_id, store_name.trim(), transaction_id.trim(), date, jobNum, net, tax, fees, total, parseFloat(req.body.liters_in_tank || 0), odo, description?.trim() || null, photoPath]
             );
 
             res.redirect('/gas-expenses?view=history&success=' + encodeURIComponent('Gas expense added successfully.'));
