@@ -764,6 +764,14 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
     display: none;
 }
 
+/* Desktop defaults — hidden on large screens, shown on mobile */
+.mobile-bottom-nav {
+    display: none;
+}
+.mobile-drawer-overlay {
+    display: none;
+}
+
 @media (max-width: 768px) {
     .mobile-header {
         display: flex;
@@ -850,7 +858,7 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
 
     /* ═══ MOBILE BOTTOM NAVIGATION ═══ */
     .mobile-bottom-nav {
-        display: flex;
+        display: flex !important;
         position: fixed;
         bottom: 0;
         left: 0;
@@ -1089,13 +1097,7 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
     }
 }
 
-/* Desktop default hidden states */
-.mobile-bottom-nav {
-    display: none;
-}
-.mobile-drawer-overlay {
-    display: none;
-}
+/* (mobile-bottom-nav and mobile-drawer-overlay defaults moved above @media block) */
 
 
 
