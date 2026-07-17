@@ -1074,7 +1074,7 @@ app.post('/expenses/scan-receipt', requireAuth, (req, res, next) => {
         const base64Data = fileBuffer.toString('base64');
         const mimeType = req.file.mimetype;
 
-        const prompt = `You are a receipt analysis AI. Extract key transaction details from this receipt image. Return structured JSON matching the provided schema. If a value is missing or hard to read, make your best guess. For tax_type, map to one of: GST, HST13, HST15, or None based on the province/tax rate listed.`;
+        const prompt = `You are a receipt analysis AI. Extract key transaction details from this receipt image. Return structured JSON matching the provided schema. If a value is missing or hard to read, make your best guess. For tax_type, map to one of: GST, HST13, HST15, or None based on the province/tax rate listed. For transaction_id, extract the receipt number or transaction reference.`;
 
         const requestBody = JSON.stringify({
             contents: [
@@ -1097,11 +1097,14 @@ app.post('/expenses/scan-receipt', requireAuth, (req, res, next) => {
                     type: "OBJECT",
                     properties: {
                         store_name: { type: "STRING" },
+                        transaction_id: { type: "STRING", description: "Invoice number, receipt number, or transaction ID if visible" },
                         date: { type: "STRING", description: "Format: YYYY-MM-DD" },
                         total_amount: { type: "NUMBER" },
                         tax_type: { type: "STRING", enum: ["None", "GST", "HST13", "HST15"] },
                         net_amount: { type: "NUMBER" },
                         tax_amount: { type: "NUMBER" },
+                        fees_amount: { type: "NUMBER", description: "Extra fee amount if any, otherwise 0" },
+                        liters_purchased: { type: "NUMBER", description: "Liters of fuel/gas if visible, otherwise 0" },
                         description: { type: "STRING" }
                     },
                     required: ["store_name", "date", "total_amount", "tax_type"]

@@ -187,6 +187,251 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // ── AI Receipt Scanner (Main Expense Form) ──
+    const btnScanReceipt = document.getElementById('btn-scan-receipt');
+    const inputReceiptPhoto = document.getElementById('receipt_photo');
+    const scanStatusMsg = document.getElementById('scan-status-message');
+
+    if (btnScanReceipt && inputReceiptPhoto && scanStatusMsg) {
+        btnScanReceipt.addEventListener('click', async () => {
+            const file = inputReceiptPhoto.files[0];
+            if (!file) {
+                scanStatusMsg.style.display = 'block';
+                scanStatusMsg.style.color = 'var(--danger)';
+                scanStatusMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Please select or take a photo of a receipt first.';
+                return;
+            }
+
+            // Start scanning
+            btnScanReceipt.disabled = true;
+            const originalBtnContent = btnScanReceipt.innerHTML;
+            btnScanReceipt.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning...';
+            
+            scanStatusMsg.style.display = 'block';
+            scanStatusMsg.style.color = 'var(--primary)';
+            scanStatusMsg.innerHTML = '<i class="fa-solid fa-brain fa-pulse"></i> Gemini AI is reading your receipt...';
+
+            const formData = new FormData();
+            formData.append('receipt_photo', file);
+
+            try {
+                const response = await fetch('/expenses/scan-receipt', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Failed to scan receipt');
+                }
+
+                // Fill form fields
+                if (data.store_name) {
+                    const storeInput = document.getElementById('store_name');
+                    if (storeInput) {
+                        storeInput.value = data.store_name;
+                        flashField(storeInput);
+                    }
+                }
+                if (data.transaction_id) {
+                    const txnInput = document.getElementById('transaction_id');
+                    if (txnInput) {
+                        txnInput.value = data.transaction_id;
+                        flashField(txnInput);
+                    }
+                }
+                if (data.date) {
+                    const dateInput = document.getElementById('date');
+                    if (dateInput) {
+                        dateInput.value = data.date;
+                        flashField(dateInput);
+                    }
+                }
+                if (data.net_amount || data.total_amount) {
+                    const amountInput = document.getElementById('amount');
+                    if (amountInput) {
+                        let netVal = data.net_amount;
+                        if (!netVal && data.total_amount) {
+                            if (data.tax_amount) {
+                                netVal = data.total_amount - data.tax_amount;
+                            } else {
+                                netVal = data.total_amount;
+                            }
+                        }
+                        amountInput.value = parseFloat(netVal || 0).toFixed(2);
+                        flashField(amountInput);
+                    }
+                }
+                if (data.tax_type) {
+                    const taxInput = document.getElementById('tax_type');
+                    if (taxInput) {
+                        taxInput.value = data.tax_type;
+                        flashField(taxInput);
+                    }
+                }
+                if (data.description) {
+                    const descInput = document.getElementById('description');
+                    if (descInput) {
+                        descInput.value = data.description;
+                        flashField(descInput);
+                    }
+                }
+
+                // Trigger recalculation
+                if (typeof recalc === 'function') recalc();
+                else if (typeof window.recalcFromAny === 'function') window.recalcFromAny();
+
+                scanStatusMsg.style.color = 'var(--success)';
+                scanStatusMsg.innerHTML = '<i class="fa-solid fa-circle-check"></i> Scan complete! Filled fields are highlighted.';
+            } catch (err) {
+                console.error('Scan error:', err);
+                scanStatusMsg.style.color = 'var(--danger)';
+                scanStatusMsg.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Error: ${err.message}. Please enter manually.`;
+            } finally {
+                btnScanReceipt.disabled = false;
+                btnScanReceipt.innerHTML = originalBtnContent;
+            }
+        });
+    }
+
+    // ── AI Receipt Scanner (Gas Expense Form) ──
+    const btnScanReceiptGas = document.getElementById('btn-scan-receipt-gas');
+    const scanStatusMsgGas = document.getElementById('scan-status-message-gas');
+
+    if (btnScanReceiptGas && scanStatusMsgGas) {
+        btnScanReceiptGas.addEventListener('click', async () => {
+            const form = document.getElementById('addGasExpenseForm');
+            if (!form) return;
+            const fileInput = form.querySelector('input[type="file"]');
+            const file = fileInput ? fileInput.files[0] : null;
+
+            if (!file) {
+                scanStatusMsgGas.style.display = 'block';
+                scanStatusMsgGas.style.color = 'var(--danger)';
+                scanStatusMsgGas.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Please select or take a photo of a receipt first.';
+                return;
+            }
+
+            // Start scanning
+            btnScanReceiptGas.disabled = true;
+            const originalBtnContent = btnScanReceiptGas.innerHTML;
+            btnScanReceiptGas.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning...';
+            
+            scanStatusMsgGas.style.display = 'block';
+            scanStatusMsgGas.style.color = 'var(--primary)';
+            scanStatusMsgGas.innerHTML = '<i class="fa-solid fa-brain fa-pulse"></i> Gemini AI is reading your receipt...';
+
+            const formData = new FormData();
+            formData.append('receipt_photo', file);
+
+            try {
+                const response = await fetch('/expenses/scan-receipt', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Failed to scan receipt');
+                }
+
+                // Fill gas form fields
+                if (data.store_name) {
+                    const storeInput = form.querySelector('#store_name');
+                    if (storeInput) {
+                        storeInput.value = data.store_name;
+                        flashField(storeInput);
+                    }
+                }
+                if (data.transaction_id) {
+                    const txnInput = form.querySelector('#transaction_id');
+                    if (txnInput) {
+                        txnInput.value = data.transaction_id;
+                        flashField(txnInput);
+                    }
+                }
+                if (data.date) {
+                    const dateInput = form.querySelector('#date');
+                    if (dateInput) {
+                        dateInput.value = data.date;
+                        flashField(dateInput);
+                    }
+                }
+                if (data.net_amount || data.total_amount) {
+                    const netInput = form.querySelector('#net_amount');
+                    if (netInput) {
+                        let netVal = data.net_amount;
+                        if (!netVal && data.total_amount) {
+                            if (data.tax_amount) {
+                                netVal = data.total_amount - data.tax_amount - (data.fees_amount || 0);
+                            } else {
+                                netVal = data.total_amount;
+                            }
+                        }
+                        netInput.value = parseFloat(netVal || 0).toFixed(2);
+                        flashField(netInput);
+                    }
+                }
+                if (data.tax_amount !== undefined) {
+                    const taxInput = form.querySelector('#tax_amount');
+                    if (taxInput) {
+                        taxInput.value = parseFloat(data.tax_amount || 0).toFixed(2);
+                        flashField(taxInput);
+                    }
+                }
+                if (data.fees_amount !== undefined) {
+                    const feesInput = form.querySelector('#fees_amount');
+                    if (feesInput) {
+                        feesInput.value = parseFloat(data.fees_amount || 0).toFixed(2);
+                        flashField(feesInput);
+                    }
+                }
+                if (data.liters_purchased) {
+                    const litersInput = form.querySelector('#liters_in_tank');
+                    if (litersInput) {
+                        litersInput.value = parseFloat(data.liters_purchased).toFixed(2);
+                        flashField(litersInput);
+                    }
+                }
+                if (data.description) {
+                    const descInput = form.querySelector('#description');
+                    if (descInput) {
+                        descInput.value = data.description;
+                        flashField(descInput);
+                    }
+                }
+
+                // Trigger recalculation
+                if (typeof calculateTotal === 'function') {
+                    calculateTotal();
+                } else if (typeof window.calculateTotal === 'function') {
+                    window.calculateTotal();
+                }
+
+                scanStatusMsgGas.style.color = 'var(--success)';
+                scanStatusMsgGas.innerHTML = '<i class="fa-solid fa-circle-check"></i> Scan complete! Filled fields are highlighted.';
+            } catch (err) {
+                console.error('Scan error:', err);
+                scanStatusMsgGas.style.color = 'var(--danger)';
+                scanStatusMsgGas.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Error: ${err.message}. Please enter manually.`;
+            } finally {
+                btnScanReceiptGas.disabled = false;
+                btnScanReceiptGas.innerHTML = originalBtnContent;
+            }
+        });
+    }
+
+    function flashField(element) {
+        element.style.transition = 'none';
+        element.style.borderColor = 'var(--primary)';
+        element.style.boxShadow = '0 0 0 4px rgba(0, 115, 234, 0.25)';
+        setTimeout(() => {
+            element.style.transition = 'border-color var(--transition), box-shadow var(--transition)';
+            element.style.borderColor = '';
+            element.style.boxShadow = '';
+        }, 1500);
+    }
+
     // ── Receipt Photo Modal ──
     const modal    = document.getElementById("receiptModal");
     const modalImg = document.getElementById("modalImg");

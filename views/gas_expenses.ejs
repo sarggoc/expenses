@@ -59,7 +59,7 @@
             </div>
             <div class="panel-body">
                 <% if (myGasCards && myGasCards.length > 0) { %>
-                    <form action="/gas-expenses/add" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 0.875rem;">
+                    <form action="/gas-expenses/add" id="addGasExpenseForm" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 0.875rem;">
                         
                         <div class="form-group">
                             <label for="gas_card_id">Select Gas Card <span class="req">*</span></label>
@@ -135,7 +135,13 @@
 
                         <div class="form-group">
                             <label for="receipt_photo">Receipt Photo <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
-                            <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*" />
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*" capture="environment" style="flex: 1;">
+                                <button type="button" class="btn btn-outline" id="btn-scan-receipt-gas" style="padding: 0.55rem 0.8rem; margin: 0; font-size: 0.8rem;" title="Auto-scan receipt details using AI">
+                                    <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i> AI Scan
+                                </button>
+                            </div>
+                            <div id="scan-status-message-gas" style="display: none; font-size: 0.75rem; margin-top: 0.35rem; font-weight: 600;"></div>
                         </div>
 
                         <button type="submit" class="btn btn-primary" style="margin-top: 0.25rem;">
