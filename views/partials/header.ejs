@@ -387,9 +387,8 @@
         <% if (user) { %>
         <!-- Mobile Header Bar -->
         <header class="mobile-header">
-            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Menu">
-                <i class="fa-solid fa-bars"></i>
-            </button>
+            <!-- Hamburger hidden on mobile — bottom nav replaces sidebar -->
+            <span style="width:38px;"></span>
             <div class="mobile-logo" style="display: flex; align-items: center;">
                 <% if (locals.settings && locals.settings.custom_logo_path) { %>
                     <img src="<%= locals.settings.custom_logo_path %>" alt="Logo" class="custom-logo-img" style="max-height: 28px; max-width: 100px; object-fit: contain; border-radius: 4px;">
@@ -412,5 +411,33 @@
             </button>
         </header>
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- ═══ MOBILE BOTTOM NAVIGATION ═══ -->
+        <nav class="mobile-bottom-nav" id="mobileBottomNav">
+            <% if (locals.hasGasCard || user.role === 'admin' || user.role === 'accounting') { %>
+            <a href="/gas-expenses" class="mobile-nav-item <%= locals.activePage === 'gas-expenses' ? 'active' : '' %>">
+                <i class="fa-solid fa-gas-pump"></i>
+                <span>Gas</span>
+            </a>
+            <% } %>
+            <a href="/dashboard?view=add-reimb" class="mobile-nav-item <%= locals.activePage === 'dashboard' && locals.activeView === 'add-reimb' ? 'active' : '' %>">
+                <i class="fa-solid fa-hand-holding-dollar"></i>
+                <span>Reimburse</span>
+            </a>
+            <% if (user.card_last_digits && user.card_last_digits !== 'None') { %>
+            <a href="/dashboard?view=add-cc" class="mobile-nav-item <%= locals.activePage === 'dashboard' && locals.activeView === 'add-cc' ? 'active' : '' %>">
+                <i class="fa-solid fa-credit-card"></i>
+                <span>Credit Card</span>
+            </a>
+            <% } %>
+            <a href="/dashboard" class="mobile-nav-item <%= locals.activePage === 'dashboard' && !locals.activeView ? 'active' : '' %>">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>History</span>
+            </a>
+            <a href="/logout" class="mobile-nav-item" style="color: var(--danger);">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Logout</span>
+            </a>
+        </nav>
         <% } %>
         <main>
