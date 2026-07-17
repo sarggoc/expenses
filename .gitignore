@@ -22,3 +22,9 @@ public/uploads/*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Auto-generated database backups (do not commit)
+backups/
+
+# Tesseract OCR model file (large binary, auto-downloaded at runtime)
+eng.traineddata
