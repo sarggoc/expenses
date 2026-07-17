@@ -4,6 +4,7 @@
             <tr>
                 <th>Date</th>
                 <th>Store / Vendor</th>
+                <th>Origin</th>
                 <th>Job #</th>
                 <th>Supervisor</th>
                 <th>Net Amount</th>
@@ -25,6 +26,23 @@
                         <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; max-width: 250px; white-space: normal; word-break: break-word;">
                             <i class="fa-solid fa-align-left" style="font-size: 0.7rem;"></i> <%= exp.description %>
                         </div>
+                    <% } %>
+                </td>
+                <td>
+                    <% if (exp.submission_method) { %>
+                        <% if (exp.submission_method === 'Credit Card') { %>
+                            <span class="badge" style="background: rgba(0, 120, 215, 0.1); color: #0078d7; border: 1px solid rgba(0, 120, 215, 0.2); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-credit-card"></i> Credit Card</span>
+                        <% } else if (exp.submission_method === 'Gas/Fuel Card') { %>
+                            <span class="badge" style="background: rgba(230, 126, 34, 0.1); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-gas-pump"></i> Gas Card</span>
+                        <% } else { %>
+                            <span class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-hand-holding-dollar"></i> Reimbursement</span>
+                        <% } %>
+                    <% } else { %>
+                        <% if (exp.payment_type === 'Company Card') { %>
+                            <span class="badge" style="background: rgba(0, 120, 215, 0.1); color: #0078d7; border: 1px solid rgba(0, 120, 215, 0.2); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-credit-card"></i> Credit Card</span>
+                        <% } else { %>
+                            <span class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-hand-holding-dollar"></i> Reimbursement</span>
+                        <% } %>
                     <% } %>
                 </td>
                 <td>
@@ -58,9 +76,9 @@
                 <td style="font-weight: 700; color: var(--primary);">$<%= parseFloat(exp.total_amount).toFixed(2) %></td>
                 <td>
                     <% if (exp.receipt_photo_path) { %>
-                        <button class="btn btn-outline btn-sm" onclick="viewReceipt('<%= exp.receipt_photo_path %>')">
-                            <i class="fa-solid fa-image"></i> View
-                        </button>
+                        <div class="receipt-thumbnail-container">
+                            <img src="<%= exp.receipt_photo_path %>" class="receipt-thumbnail" onclick="viewReceipt('<%= exp.receipt_photo_path %>')" alt="Receipt" title="Click to enlarge" />
+                        </div>
                     <% } else { %>
                         <span style="color: var(--text-light);">—</span>
                     <% } %>

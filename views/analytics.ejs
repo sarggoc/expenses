@@ -161,10 +161,10 @@
 <!-- ═══ AI INSIGHTS ═══ -->
 <div class="panel" id="ai-panel">
     <div class="panel-header">
-        <h2 class="panel-title"><i class="fa-solid fa-brain"></i> AI Insights <span style="font-size:.75rem; color:var(--text-muted); font-weight:400; margin-left:.5rem;">powered by Gemini</span></h2>
+        <h2 class="panel-title">AI Insights <span style="font-size:.75rem; color:var(--text-muted); font-weight:400; margin-left:.5rem;">powered by Gemini</span></h2>
         <% if (hasAiKey) { %>
         <button id="aiBtn" class="btn btn-primary btn-sm" onclick="runAIAnalysis()">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Expenses
+            Analyze Expenses
         </button>
         <% } %>
     </div>
@@ -177,7 +177,6 @@
         </div>
         <% } else { %>
         <div id="ai-placeholder" style="text-align:center; padding:2rem; color:var(--text-muted);">
-            <i class="fa-solid fa-wand-magic-sparkles" style="font-size:2.5rem; opacity:.25; margin-bottom:.75rem; display:block;"></i>
             <p>Click <strong>Analyze Expenses</strong> to get AI-powered insights on purchasing patterns, trends, and anomalies.</p>
         </div>
         <div id="ai-loading" style="display:none; text-align:center; padding:2rem;">
@@ -315,7 +314,7 @@ async function runAIAnalysis() {
         result.style.display = 'block';
     }
     btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Re-Analyze';
+    btn.innerHTML = 'Re-Analyze';
 }
 </script>
 

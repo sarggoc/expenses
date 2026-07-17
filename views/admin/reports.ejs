@@ -1,6 +1,6 @@
 <%- include('../partials/header') %>
 
-<div class="admin-page-header">
+<div class="admin-page-header no-print">
     <div>
         <h1 class="admin-page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Expense <span>Reports</span></h1>
         <p class="admin-page-sub">Filter expenses by employee and timeline, approve/reject pending submissions, and export reports to PDF or Excel.</p>
@@ -19,35 +19,96 @@
 <% } %>
 
 <!-- ═══ FILTER BAR ═══ -->
-<div class="panel" style="margin-bottom: 1.5rem;">
+<div class="panel no-print" style="margin-bottom: 1.5rem;">
     <div class="panel-header">
-        <h2 class="panel-title"><i class="fa-solid fa-filter"></i> Select Employee &amp; Billing Cycle</h2>
+        <h2 class="panel-title"><i class="fa-solid fa-filter"></i> Generate Cycle Report</h2>
     </div>
     <div class="panel-body">
         <form action="/admin/reports" method="GET" class="filter-bar" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-            <div class="filter-field" style="flex: 1; min-width: 200px;">
-                <label for="user_id">Select Employee <span class="req">*</span></label>
-                <select id="user_id" name="user_id" required>
-                    <option value="">— Select Employee —</option>
-                    <% users.forEach(u => { %>
-                        <option value="<%= u.id %>" <%= selectedUser && selectedUser.id == u.id ? 'selected' : '' %>><%= u.first_name %> <%= u.last_name %> (@<%= u.username %>)</option>
-                    <% }) %>
+            <div class="filter-field" style="min-width: 150px;">
+                <label for="report_target">Report Type</label>
+                <select id="report_target" name="report_target" onchange="toggleReportFields(this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="employee" <%= locals.reportTarget === 'employee' ? 'selected' : '' %>>Employee</option>
+                    <option value="truck" <%= locals.reportTarget === 'truck' ? 'selected' : '' %>>Truck</option>
+                    <option value="group" <%= locals.reportTarget === 'group' ? 'selected' : '' %>>Group</option>
                 </select>
             </div>
+
+            <!-- Employee Select Field -->
+            <div class="filter-field" id="employee_field" style="flex: 1; min-width: 200px; display: <%= locals.reportTarget === 'employee' || !locals.reportTarget ? 'block' : 'none' %>;">
+                <label for="user_id">Select Employee <span class="req">*</span></label>
+                <select id="user_id" name="user_id" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="">— Select Employee —</option>
+                    <% if (locals.users) { %>
+                        <% users.forEach(u => { %>
+                            <option value="<%= u.id %>" <%= locals.selectedUser && locals.selectedUser.id == u.id ? 'selected' : '' %>><%= u.first_name %> <%= u.last_name %> (@<%= u.username %>)</option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            </div>
+
+            <!-- Truck Select Field -->
+            <div class="filter-field" id="truck_field" style="flex: 1; min-width: 200px; display: <%= locals.reportTarget === 'truck' ? 'block' : 'none' %>;">
+                <label for="truck_assigned">Select Truck <span class="req">*</span></label>
+                <select id="truck_assigned" name="truck_assigned" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="">— Select Truck —</option>
+                    <% if (locals.trucks) { %>
+                        <% trucks.forEach(t => { %>
+                            <option value="<%= t.truck_assigned %>" <%= locals.selectedTruck === t.truck_assigned ? 'selected' : '' %>><%= t.truck_assigned %></option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            </div>
+
+            <!-- Group Select Field -->
+            <div class="filter-field" id="group_field" style="flex: 1; min-width: 200px; display: <%= locals.reportTarget === 'group' ? 'block' : 'none' %>;">
+                <label for="group_id">Select Group <span class="req">*</span></label>
+                <select id="group_id" name="group_id" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="">— Select Group —</option>
+                    <% if (locals.groups) { %>
+                        <% groups.forEach(g => { %>
+                            <option value="<%= g.id %>" <%= locals.selectedGroup && locals.selectedGroup.id == g.id ? 'selected' : '' %>><%= g.name %></option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            </div>
+
             <div class="filter-field">
                 <label for="start_date">From</label>
-                <input type="date" id="start_date" name="start_date" value="<%= startDate %>">
+                <input type="date" id="start_date" name="start_date" value="<%= startDate %>" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
             </div>
             <div class="filter-field">
                 <label for="end_date">To</label>
-                <input type="date" id="end_date" name="end_date" value="<%= endDate %>">
+                <input type="date" id="end_date" name="end_date" value="<%= endDate %>" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
             </div>
             <button type="submit" class="btn btn-primary" style="height: 38px;">
-                <i class="fa-solid fa-arrow-right-to-bracket"></i> Load Expenses
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Load Report
             </button>
         </form>
     </div>
 </div>
+
+<script>
+    function toggleReportFields(val) {
+        const empField = document.getElementById('employee_field');
+        const truckField = document.getElementById('truck_field');
+        const grpField = document.getElementById('group_field');
+        
+        empField.style.display = val === 'employee' ? 'block' : 'none';
+        truckField.style.display = val === 'truck' ? 'block' : 'none';
+        grpField.style.display = val === 'group' ? 'block' : 'none';
+        
+        // Update required attributes to match selection
+        document.getElementById('user_id').required = val === 'employee';
+        document.getElementById('truck_assigned').required = val === 'truck';
+        document.getElementById('group_id').required = val === 'group';
+    }
+    // Set initial required states
+    document.addEventListener('DOMContentLoaded', () => {
+        const targetVal = document.getElementById('report_target').value;
+        toggleReportFields(targetVal);
+    });
+</script>
 
 <!-- ═══ REPORT CONTENTS ═══ -->
 <% if (selectedUser) { %>
@@ -67,15 +128,18 @@
         </div>
         <% if ((expenses && expenses.length > 0) || (gasExpenses && gasExpenses.length > 0)) { %>
         <div class="export-btns" style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" class="btn btn-sm no-print" onclick="window.print()" title="Print this report" style="background: var(--surface); border: 1px solid var(--border-dark); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                <i class="fa-solid fa-print" style="color: var(--primary); font-size: 1.1rem;"></i> Print Report
+            </button>
             <a href="/admin/export/pdf/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=all"
-               class="btn btn-pdf btn-sm" title="Download Combined PDF Report">
+               class="btn btn-pdf btn-sm no-print" title="Download Combined PDF Report">
                 <i class="fa-solid fa-file-pdf"></i> Export Combined PDF
             </a>
             <a href="/admin/export/excel/<%= selectedUser.id %>?start_date=<%= startDate %>&end_date=<%= endDate %>&type=all"
-               class="btn btn-excel btn-sm" title="Download Combined Excel Spreadsheet">
+               class="btn btn-excel btn-sm no-print" title="Download Combined Excel Spreadsheet">
                 <i class="fa-solid fa-file-excel"></i> Export Combined Excel
             </a>
-            <button type="button" class="btn btn-sm" onclick="openCsvExportModal()" title="Export custom CSV data" style="background: var(--surface); border: 1px solid var(--border-dark); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+            <button type="button" class="btn btn-sm no-print" onclick="openCsvExportModal()" title="Export custom CSV data" style="background: var(--surface); border: 1px solid var(--border-dark); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
                 <i class="fa-solid fa-file-csv" style="color: #2ecc71; font-size: 1.1rem;"></i> Custom CSV Export
             </button>
         </div>
@@ -171,18 +235,68 @@
         </div>
         <div class="panel-body" style="padding: 0;">
             <% if (gasExpenses.length > 0) { %>
+                <!-- Gas Card & Truck Analytics Summary -->
+                <% if (locals.gasAnalytics && gasAnalytics.length > 0) { %>
+                    <div style="padding: 1.25rem; background: var(--surface-light); border-bottom: 1px solid var(--border); border-radius: var(--radius-sm) var(--radius-sm) 0 0;">
+                        <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="fa-solid fa-chart-bar" style="color: #e67e22;"></i> Card &amp; Truck Analytics Summary for <%= selectedUser.first_name %>
+                        </h4>
+                        <div class="table-responsive" style="border: 1px solid var(--border); border-radius: 6px; background: #fff; margin-bottom: 1rem;">
+                            <table class="table" style="margin-bottom: 0;">
+                                <thead>
+                                    <tr style="background: var(--background-light);">
+                                        <th>Card Info</th>
+                                        <th>Assigned Truck</th>
+                                        <th style="text-align: right;">Fillups</th>
+                                        <th style="text-align: right;">Total Spent</th>
+                                        <th style="text-align: right;">Total Liters</th>
+                                        <th style="text-align: right;">Last Odo</th>
+                                        <th style="text-align: right;">Dist. Travelled</th>
+                                        <th style="text-align: right;">Consumption</th>
+                                        <th style="text-align: right;">Avg. Dist between Fillups</th>
+                                        <th style="text-align: right;">Avg. Hours between Fillups</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% gasAnalytics.forEach(c => { %>
+                                        <tr>
+                                            <td>
+                                                <div style="font-weight: 600; font-size: 0.85rem;">•••• <%= c.card_number.slice(-4) %></div>
+                                                <div style="font-size: 0.72rem; color: var(--text-muted);"><%= c.card_type %></div>
+                                            </td>
+                                            <td><strong><%= c.truck_assigned || 'None / Personal' %></strong></td>
+                                            <td style="text-align: right;"><%= c.fillups_count %></td>
+                                            <td style="text-align: right; font-weight: 600; color: var(--text);">$<%= c.total_amount.toFixed(2) %></td>
+                                            <td style="text-align: right;"><%= c.total_liters.toFixed(1) %> L</td>
+                                            <td style="text-align: right;"><%= c.last_odo ? c.last_odo.toLocaleString() + ' km' : '—' %></td>
+                                            <td style="text-align: right;"><%= c.total_distance ? c.total_distance.toLocaleString() + ' km' : '—' %></td>
+                                            <td style="text-align: right; font-weight: 600; color: var(--primary);">
+                                                <%= c.consumption_rate ? c.consumption_rate.toFixed(1) + ' L/100km' : '—' %>
+                                            </td>
+                                            <td style="text-align: right;"><%= c.avg_distance ? c.avg_distance.toLocaleString() + ' km' : '—' %></td>
+                                            <td style="text-align: right;"><%= c.avg_hours ? c.avg_hours + ' hrs' : '—' %></td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                <% } %>
+
                 <div class="table-responsive">
                     <table class="table" style="margin-bottom: 0;">
                         <thead>
                             <tr>
                                 <th>Date</th>
                                 <th>Store/Merchant</th>
+                                <th>Origin</th>
                                 <th>Card Number</th>
                                 <th>Job #</th>
                                 <th>Liters</th>
                                 <th style="text-align: right;">Net ($)</th>
                                 <th style="text-align: right;">GST ($)</th>
                                 <th style="text-align: right;">Total ($)</th>
+                                <th>Receipt</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -190,6 +304,9 @@
                                 <tr>
                                     <td><%= typeof exp.date === 'string' ? exp.date.split('T')[0] : '' %></td>
                                     <td><strong><%= exp.store_name %></strong></td>
+                                    <td>
+                                        <span class="badge" style="background: rgba(230, 126, 34, 0.1); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-gas-pump"></i> Gas Card</span>
+                                    </td>
                                     <td><code style="font-size:0.8rem; background:var(--bg-light); padding:0.1rem 0.3rem; border-radius:3px;">****<%= exp.card_number ? exp.card_number.slice(-4) : 'N/A' %></code></td>
                                     <td>
                                         <span style="font-weight: 600;"><%= exp.job_number || 'N/A' %></span>
@@ -207,6 +324,15 @@
                                     <td style="text-align: right;">$<%= parseFloat(exp.net_amount).toFixed(2) %></td>
                                     <td style="text-align: right;">$<%= parseFloat(exp.tax_amount).toFixed(2) %></td>
                                     <td style="text-align: right; font-weight: 600;">$<%= parseFloat(exp.total_amount).toFixed(2) %></td>
+                                    <td>
+                                        <% if (exp.receipt_photo_path) { %>
+                                            <div class="receipt-thumbnail-container">
+                                                <img src="<%= exp.receipt_photo_path %>" class="receipt-thumbnail" onclick="viewReceipt('<%= exp.receipt_photo_path %>')" alt="Receipt" title="Click to enlarge" />
+                                            </div>
+                                        <% } else { %>
+                                            <span style="color: var(--text-light);">—</span>
+                                        <% } %>
+                                    </td>
                                 </tr>
                             <% }) %>
                         </tbody>
@@ -221,14 +347,294 @@
         </div>
     </div>
 
-<% } else { %>
-<div class="panel">
-    <div class="panel-body" style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
-        <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--primary); opacity: 0.25; margin-bottom: 1rem; display: block;"></i>
-        <p style="font-weight: 500; font-size: 1rem;">No employee selected</p>
-        <p style="font-size: 0.85rem; margin-top: 0.25rem;">Please select an employee and billing cycle date range from the filter bar above to load their reports.</p>
+<% } else if (locals.selectedTruck) { %>
+    <div class="admin-page-header" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: var(--text);">Fuel &amp; Odometer Analytics for <%= locals.selectedTruck %></h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Cycle: <%= startDate %> to <%= endDate %></p>
+        </div>
+        <div class="export-btns no-print" style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" class="btn btn-sm" onclick="window.print()" title="Print this report" style="background: var(--surface); border: 1px solid var(--border-dark); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                <i class="fa-solid fa-print" style="color: var(--primary); font-size: 1.1rem;"></i> Print Report
+            </button>
+        </div>
     </div>
-</div>
+
+    <!-- Section: Truck Analytics Stats -->
+    <% if (gasAnalytics.length > 0) { %>
+        <div class="panel" style="margin-bottom: 1.5rem;">
+            <div class="panel-header" style="background: var(--primary-light); border-bottom-color: rgba(0,115,234,0.15);">
+                <h3 class="panel-title" style="color: var(--primary);">
+                    <i class="fa-solid fa-truck-pickup"></i> Truck Performance Summary
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+                <div class="table-responsive">
+                    <table class="table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--background-light);">
+                                <th>Card Number</th>
+                                <th>Card Type</th>
+                                <th style="text-align: right;">Fillups</th>
+                                <th style="text-align: right;">Total Spent</th>
+                                <th style="text-align: right;">Total Liters</th>
+                                <th style="text-align: right;">Distance Travelled</th>
+                                <th style="text-align: right;">Avg Consumption</th>
+                                <th style="text-align: right;">Avg Dist (Fillup)</th>
+                                <th style="text-align: right;">Avg Hours (Fillup)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% gasAnalytics.forEach(c => { %>
+                                <tr>
+                                    <td>•••• <%= c.card_number.slice(-4) %></td>
+                                    <td><%= c.card_type %></td>
+                                    <td style="text-align: right;"><%= c.fillups_count %></td>
+                                    <td style="text-align: right; font-weight: 600;">$<%= c.total_amount.toFixed(2) %></td>
+                                    <td style="text-align: right;"><%= c.total_liters.toFixed(1) %> L</td>
+                                    <td style="text-align: right;"><%= c.total_distance ? c.total_distance.toLocaleString() + ' km' : '—' %></td>
+                                    <td style="text-align: right; font-weight: 600; color: var(--success);">
+                                        <%= c.consumption_rate ? c.consumption_rate.toFixed(1) + ' L/100km' : '—' %>
+                                    </td>
+                                    <td style="text-align: right;"><%= c.avg_distance ? c.avg_distance.toLocaleString() + ' km' : '—' %></td>
+                                    <td style="text-align: right;"><%= c.avg_hours ? c.avg_hours + ' hrs' : '—' %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Truck Fill-up Log -->
+        <div class="panel" style="margin-bottom: 1.5rem;">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    <i class="fa-solid fa-list"></i> Full Fill-Up &amp; Mileage Log
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+                <div class="table-responsive">
+                    <table class="table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Driver</th>
+                                <th>Store / Vendor</th>
+                                <th>Transaction ID</th>
+                                <th>Job #</th>
+                                <th style="text-align: right;">Liters</th>
+                                <th style="text-align: right;">Odometer</th>
+                                <th style="text-align: right;">Total Cost</th>
+                                <th>Receipt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <%
+                                // gasExpenses is sorted newest→oldest (DESC by date).
+                                // Distance for row[i] = row[i].odometer - row[i+1].odometer
+                                const truckDistances = gasExpenses.map((exp, i) => {
+                                    const nextExp = gasExpenses[i + 1];
+                                    if (exp.odometer && nextExp && nextExp.odometer) {
+                                        const diff = parseInt(exp.odometer) - parseInt(nextExp.odometer);
+                                        return diff > 0 ? diff : null;
+                                    }
+                                    return null;
+                                });
+                            %>
+                            <% gasExpenses.forEach((exp, idx) => { %>
+                                <tr>
+                                    <td><%= typeof exp.date === 'string' ? exp.date.split('T')[0] : '' %></td>
+                                    <td><strong><%= exp.user_name %></strong></td>
+                                    <td><%= exp.store_name %></td>
+                                    <td><%= exp.transaction_id %></td>
+                                    <td><%= exp.job_number || '—' %></td>
+                                    <td style="text-align: right;"><%= parseFloat(exp.liters_in_tank || 0).toFixed(1) %> L</td>
+                                    <td style="text-align: right; vertical-align: middle;">
+                                        <div><%= exp.odometer ? exp.odometer.toLocaleString() + ' km' : '—' %></div>
+                                        <% if (truckDistances[idx] !== null) { %>
+                                            <div style="font-size: 0.72rem; color: #2ecc71; font-weight: 600; margin-top: 2px; white-space: nowrap;">
+                                                <i class="fa-solid fa-road" style="font-size: 0.65rem;"></i> +<%= truckDistances[idx].toLocaleString() %> km
+                                            </div>
+                                        <% } %>
+                                    </td>
+                                    <td style="text-align: right; font-weight: 600;">$<%= parseFloat(exp.total_amount || 0).toFixed(2) %></td>
+                                    <td>
+                                        <% if (exp.receipt_photo_path) { %>
+                                            <div class="receipt-thumbnail-container">
+                                                <img src="<%= exp.receipt_photo_path %>" class="receipt-thumbnail" onclick="viewReceipt('<%= exp.receipt_photo_path %>')" alt="Receipt" title="Click to enlarge" />
+                                            </div>
+                                        <% } else { %>
+                                            <span style="color: var(--text-light);">—</span>
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    <% } else { %>
+        <div class="empty-state" style="padding: 3rem 0; text-align: center;">
+            <i class="fa-solid fa-truck-pickup" style="font-size: 3rem; color: var(--text-light); opacity: 0.5; margin-bottom: 1rem; display: block;"></i>
+            <p style="font-size: 0.95rem; color: var(--text-muted);">No gas expenses recorded for <%= locals.selectedTruck %> in this cycle.</p>
+        </div>
+    <% } %>
+
+<% } else if (locals.selectedGroup) { %>
+    <%
+        const reimbExpenses = expenses.filter(e => e.payment_type !== 'Company Card');
+        const cardExpenses   = expenses.filter(e => e.payment_type === 'Company Card');
+        
+        const grpReimbTotal = reimbExpenses.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+        const grpCardTotal  = cardExpenses.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+        const grpGasTotal   = gasExpenses.reduce((sum, e) => sum + parseFloat(e.total_amount || 0), 0);
+        const grpTotal = grpReimbTotal + grpCardTotal + grpGasTotal;
+    %>
+
+    <div class="admin-page-header" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: var(--text);">Group Report: <%= locals.selectedGroup.name %></h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Cycle: <%= startDate %> to <%= endDate %></p>
+        </div>
+        <div class="export-btns no-print" style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" class="btn btn-sm" onclick="window.print()" title="Print this report" style="background: var(--surface); border: 1px solid var(--border-dark); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                <i class="fa-solid fa-print" style="color: var(--primary); font-size: 1.1rem;"></i> Print Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Group KPI Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Group Spend</div>
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">$<%= grpTotal.toFixed(2) %></div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--success); padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Reimbursement Claims</div>
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">$<%= grpReimbTotal.toFixed(2) %></div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--warning); padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Company Credit Cards</div>
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">$<%= grpCardTotal.toFixed(2) %></div>
+        </div>
+        <div style="background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--danger); padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Gas Card Total</div>
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">$<%= grpGasTotal.toFixed(2) %></div>
+        </div>
+    </div>
+
+    <!-- Section 1: Member Spending Breakdown (Full Breakdown) -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header" style="background: var(--primary-light); border-bottom-color: rgba(0,115,234,0.15);">
+            <h3 class="panel-title" style="color: var(--primary);">
+                <i class="fa-solid fa-chart-pie"></i> Group Employee Spending Breakdown
+            </h3>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <div class="table-responsive">
+                <table class="table" style="margin-bottom: 0;">
+                    <thead>
+                        <tr>
+                            <th>Driver / Employee</th>
+                            <th style="text-align: right;">Reimbursements</th>
+                            <th style="text-align: right;">Company Credit Card</th>
+                            <th style="text-align: right;">Gas Card</th>
+                            <th style="text-align: right; font-weight: 700;">Total Spending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (locals.groupUserBreakdown && locals.groupUserBreakdown.length > 0) { %>
+                            <% locals.groupUserBreakdown.forEach(member => { %>
+                                <tr>
+                                    <td><strong><%= member.user_name %></strong></td>
+                                    <td style="text-align: right; color: var(--success); font-weight: 600;">$<%= member.reimbursement_total.toFixed(2) %></td>
+                                    <td style="text-align: right; color: var(--warning); font-weight: 600;">$<%= member.company_card_total.toFixed(2) %></td>
+                                    <td style="text-align: right; color: var(--danger); font-weight: 600;">$<%= member.gas_total.toFixed(2) %></td>
+                                    <td style="text-align: right; font-weight: 700; color: var(--text);">$<%= member.total_spent.toFixed(2) %></td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem 0;">No members found in this group.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Group Reimbursements and Credit Card Expenses -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fa-solid fa-list"></i> Detailed Reimbursements &amp; Company Credit Card Claims</h3>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <% if (expenses && expenses.length > 0) { %>
+                <%- include('partials/reports_table', { tableExpenses: expenses }) %>
+            <% } else { %>
+                <p style="font-size: 0.88rem; color: var(--text-muted); text-align: center; padding: 2.5rem 0;">No claims submitted for this group in the selected cycle.</p>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Section 3: Group Gas/Truck Fuel Analytics -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fa-solid fa-gas-pump"></i> Gas Card &amp; Truck Fuel Performance</h3>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <% if (gasAnalytics && gasAnalytics.length > 0) { %>
+                <div class="table-responsive">
+                    <table class="table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--background-light);">
+                                <th>Card Info</th>
+                                <th>Truck Assigned</th>
+                                <th style="text-align: right;">Fillups</th>
+                                <th style="text-align: right;">Total Spent</th>
+                                <th style="text-align: right;">Total Liters</th>
+                                <th style="text-align: right;">Distance Travelled</th>
+                                <th style="text-align: right;">Consumption</th>
+                                <th style="text-align: right;">Avg Dist (Fillup)</th>
+                                <th style="text-align: right;">Avg Hours (Fillup)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% gasAnalytics.forEach(c => { %>
+                                <tr>
+                                    <td>•••• <%= c.card_number.slice(-4) %></td>
+                                    <td><strong style="color: var(--primary);"><%= c.truck_assigned || 'Personal / Unassigned' %></strong></td>
+                                    <td style="text-align: right;"><%= c.fillups_count %></td>
+                                    <td style="text-align: right; font-weight: 600;">$<%= c.total_amount.toFixed(2) %></td>
+                                    <td style="text-align: right;"><%= c.total_liters.toFixed(1) %> L</td>
+                                    <td style="text-align: right;"><%= c.total_distance ? c.total_distance.toLocaleString() + ' km' : '—' %></td>
+                                    <td style="text-align: right; font-weight: 600; color: var(--success);">
+                                        <%= c.consumption_rate ? c.consumption_rate.toFixed(1) + ' L/100km' : '—' %>
+                                    </td>
+                                    <td style="text-align: right;"><%= c.avg_distance ? c.avg_distance.toLocaleString() + ' km' : '—' %></td>
+                                    <td style="text-align: right;"><%= c.avg_hours ? c.avg_hours + ' hrs' : '—' %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } else { %>
+                <p style="font-size: 0.88rem; color: var(--text-muted); text-align: center; padding: 2.5rem 0;">No gas card usage for group members in the selected cycle.</p>
+            <% } %>
+        </div>
+    </div>
+
+<% } else { %>
+    <div class="panel">
+        <div class="panel-body" style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--primary); opacity: 0.25; margin-bottom: 1rem; display: block;"></i>
+            <p style="font-weight: 500; font-size: 1rem;">No report loaded</p>
+            <p style="font-size: 0.85rem; margin-top: 0.25rem;">Please select a report target (Employee, Truck, or Group) and choose the cycle dates from the filter bar above.</p>
+        </div>
+    </div>
 <% } %>
 
 
@@ -415,5 +821,262 @@
         </div>
     </div>
 </div>
+
+<%
+    const allReceipts = [];
+    if (locals.expenses && expenses.length > 0) {
+        expenses.forEach(e => {
+            if (e.receipt_photo_path) {
+                allReceipts.push({
+                    path: e.receipt_photo_path,
+                    title: `${e.date ? e.date.split('T')[0] : ''} - ${e.store_name} ($${parseFloat(e.total_amount).toFixed(2)}) - ${e.payment_type || 'Reimbursement'}`
+                });
+            }
+        });
+    }
+    if (locals.gasExpenses && gasExpenses.length > 0) {
+        gasExpenses.forEach(e => {
+            if (e.receipt_photo_path) {
+                allReceipts.push({
+                    path: e.receipt_photo_path,
+                    title: `${e.date ? e.date.split('T')[0] : ''} - ${e.store_name} ($${parseFloat(e.total_amount).toFixed(2)}) - Gas Card`
+                });
+            }
+        });
+    }
+%>
+
+<% if (allReceipts.length > 0) { %>
+    <div class="receipts-print-section">
+        <h3 class="receipts-print-title"><i class="fa-solid fa-paperclip"></i> Receipt Attachments</h3>
+        <div class="receipts-print-grid">
+            <% allReceipts.forEach(r => { %>
+                <div class="receipt-print-item">
+                    <h4><%= r.title %></h4>
+                    <img src="<%= r.path %>" alt="Receipt Image" onclick="viewReceipt('<%= r.path %>')" />
+                </div>
+            <% }) %>
+        </div>
+    </div>
+<% } %>
+
+<style>
+    /* Screen styling for Receipt Attachments */
+    .receipts-print-section {
+        margin-top: 2rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+    }
+    .receipts-print-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .receipts-print-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+    .receipt-print-item {
+        background: var(--background-light);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 0.75rem;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-sizing: border-box;
+    }
+    .receipt-print-item h4 {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: left;
+    }
+    .receipt-print-item img {
+        max-width: 100%;
+        max-height: 180px;
+        object-fit: contain;
+        border-radius: 4px;
+        cursor: pointer;
+        background: #fff;
+        border: 1px solid var(--border-light);
+        transition: transform 0.15s;
+    }
+    .receipt-print-item img:hover {
+        transform: scale(1.03);
+    }
+
+    .receipt-thumbnail-container {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .receipt-thumbnail {
+        max-width: 80px;
+        max-height: 80px;
+        width: auto;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 2px;
+        background-color: #fff;
+        cursor: pointer;
+        transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    .receipt-thumbnail:hover {
+        transform: scale(1.15);
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Print Stylesheet */
+    @media print {
+        /* Hide everything unnecessary */
+        .sidebar,
+        .sidebar-overlay,
+        .mobile-header,
+        .admin-page-header,
+        .filter-bar,
+        .no-print,
+        .export-btns,
+        .btn,
+        .modal,
+        button,
+        form,
+        .alert,
+        #rejectModal,
+        #csvExportModal,
+        .panel-header a,
+        .panel-header button,
+        .sidebar-collapse-btn {
+            display: none !important;
+        }
+
+        /* Adjust shell layout for print */
+        .app-shell {
+            display: block !important;
+        }
+        .main-wrapper {
+            margin-left: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+        }
+        main {
+            padding: 0 !important;
+        }
+
+        /* Adjust panels */
+        .panel {
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            margin-bottom: 2rem !important;
+            page-break-inside: avoid;
+        }
+        .panel-header {
+            background: #e9ecef !important;
+            border-bottom: 2px solid #6c757d !important;
+            color: #000 !important;
+            padding: 0.5rem 0.75rem !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .panel-title {
+            color: #000 !important;
+            font-size: 1.2rem !important;
+            font-weight: bold !important;
+        }
+        .panel-body {
+            padding: 0 !important;
+        }
+
+        /* Adjust tables for print */
+        table, .table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+        th, td {
+            border: 1px solid #dee2e6 !important;
+            padding: 6px 8px !important;
+            font-size: 9pt !important;
+            color: #000 !important;
+            background: transparent !important;
+        }
+        th {
+            background-color: #f8f9fa !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        tr {
+            page-break-inside: avoid !important;
+        }
+
+        /* Receipt Attachments Section in Print */
+        .receipts-print-section {
+            page-break-before: always;
+            margin-top: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+        }
+        .receipts-print-title {
+            font-size: 1.4rem !important;
+            font-weight: bold !important;
+            color: #000 !important;
+            border-bottom: 2px solid #000 !important;
+            padding-bottom: 0.5rem !important;
+            margin-bottom: 1.5rem !important;
+        }
+        .receipts-print-grid {
+            display: block !important;
+        }
+        .receipt-print-item {
+            page-break-after: always;
+            page-break-inside: avoid;
+            margin-bottom: 3rem !important;
+            border: 1px solid #dee2e6 !important;
+            padding: 1.5rem !important;
+            background: #fff !important;
+            display: block !important;
+            box-sizing: border-box;
+        }
+        .receipt-print-item h4 {
+            font-size: 1.1rem !important;
+            font-weight: bold !important;
+            color: #000 !important;
+            margin-bottom: 1.5rem !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        .receipt-print-item img {
+            max-width: 100% !important;
+            max-height: 800px !important;
+            height: auto !important;
+            object-fit: contain !important;
+            display: block !important;
+            margin: 0 auto !important;
+            border: 1px solid #ddd !important;
+        }
+        .receipt-thumbnail {
+            max-width: 80px !important;
+            max-height: 80px !important;
+            border: 1px solid #ddd !important;
+            padding: 1px !important;
+        }
+    }
+</style>
 
 <%- include('../partials/footer') %>

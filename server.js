@@ -3,7 +3,11 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
 const sqlite3 = require('sqlite3').verbose();
-const { Pool } = require('pg');
+const pg = require('pg');
+const { Pool } = pg;
+// Force PostgreSQL to return DATE and TIMESTAMP columns as raw strings, matching SQLite's behavior and avoiding EJS date-rendering bugs
+pg.types.setTypeParser(1082, val => val); // DATE -> 'YYYY-MM-DD'
+pg.types.setTypeParser(1114, val => val ? val.replace(' ', 'T') : null); // TIMESTAMP -> ISO format
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -170,6 +174,7 @@ async function initSQLite() {
                 tax_amount REAL NOT NULL, net_amount REAL NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
                 payment_type TEXT NOT NULL DEFAULT 'Reimbursement',
+                submission_method TEXT DEFAULT 'Reimbursement',
                 rejection_reason TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -281,6 +286,7 @@ async function initSQLite() {
         description TEXT,
         receipt_photo_path TEXT,
         status TEXT NOT NULL DEFAULT 'valid',
+        submission_method TEXT DEFAULT 'Gas/Fuel Card',
         contested_reason TEXT,
         rebuttal_reason TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -288,6 +294,10 @@ async function initSQLite() {
         FOREIGN KEY (gas_card_id) REFERENCES gas_cards(id) ON DELETE CASCADE
     )`); } catch (e) {}
     try { await runSQLite('ALTER TABLE gas_expenses ADD COLUMN odometer INTEGER'); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN submission_method TEXT DEFAULT 'Reimbursement'`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE gas_expenses ADD COLUMN submission_method TEXT DEFAULT 'Gas/Fuel Card'`); } catch (e) {}
+    try { await runSQLite(`UPDATE expenses SET submission_method = 'Credit Card' WHERE payment_type = 'Company Card'`); } catch (e) {}
+    try { await runSQLite(`UPDATE expenses SET submission_method = 'Reimbursement' WHERE payment_type = 'Reimbursement'`); } catch (e) {}
     console.log('SQLite ready.');
 }
 
@@ -374,6 +384,7 @@ async function initPostgres() {
         net_amount DECIMAL(10,2) NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         payment_type VARCHAR(20) NOT NULL DEFAULT 'Reimbursement',
+        submission_method VARCHAR(50) DEFAULT 'Reimbursement',
         rejection_reason VARCHAR(255) DEFAULT NULL,
         fees_json TEXT,
         void_reason TEXT,
@@ -467,6 +478,7 @@ async function initPostgres() {
         description TEXT,
         receipt_photo_path VARCHAR(255),
         status VARCHAR(20) NOT NULL DEFAULT 'valid',
+        submission_method VARCHAR(50) DEFAULT 'Gas/Fuel Card',
         contested_reason TEXT,
         rebuttal_reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -477,6 +489,17 @@ async function initPostgres() {
     } catch (e) {
         console.error('Failed to run gas_expenses alter table:', e.message);
     }
+
+    try {
+        await pgPool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS submission_method VARCHAR(50) DEFAULT 'Reimbursement'`);
+    } catch (e) {}
+    try {
+        await pgPool.query(`ALTER TABLE gas_expenses ADD COLUMN IF NOT EXISTS submission_method VARCHAR(50) DEFAULT 'Gas/Fuel Card'`);
+    } catch (e) {}
+    try {
+        await pgPool.query(`UPDATE expenses SET submission_method = 'Credit Card' WHERE payment_type = 'Company Card'`);
+        await pgPool.query(`UPDATE expenses SET submission_method = 'Reimbursement' WHERE payment_type = 'Reimbursement'`);
+    } catch (e) {}
 
     await pgPool.query(`CREATE TABLE IF NOT EXISTS reimbursement_types (
         id SERIAL PRIMARY KEY,
@@ -552,6 +575,7 @@ async function initDB() {
             tax_amount DECIMAL(10,2) NOT NULL, net_amount DECIMAL(10,2) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'pending', 
             payment_type VARCHAR(20) NOT NULL DEFAULT 'Reimbursement',
+            submission_method VARCHAR(50) DEFAULT 'Reimbursement',
             rejection_reason VARCHAR(255) DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -614,6 +638,10 @@ async function initDB() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`); } catch (e) {}
         try { await pool.query(`ALTER TABLE job_numbers ADD COLUMN pending_confirmation TINYINT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE job_numbers ADD COLUMN submitted_by INT`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE expenses ADD COLUMN submission_method VARCHAR(50) DEFAULT 'Reimbursement'`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE gas_expenses ADD COLUMN submission_method VARCHAR(50) DEFAULT 'Gas/Fuel Card'`); } catch (e) {}
+        try { await pool.query(`UPDATE expenses SET submission_method = 'Credit Card' WHERE payment_type = 'Company Card'`); } catch (e) {}
+        try { await pool.query(`UPDATE expenses SET submission_method = 'Reimbursement' WHERE payment_type = 'Reimbursement'`); } catch (e) {}
         dbMode = 'mysql';
         console.log('MySQL connected.');
     } catch (err) {
@@ -1388,13 +1416,21 @@ app.post('/expenses/add', requireAuth, (req, res, next) => {
 
         const expType = payType === 'Reimbursement' ? (req.body.expense_type?.trim() || null) : null;
         const wbsCode = payType === 'Reimbursement' ? (req.body.wbs_code?.trim() || null) : null;
+        const submissionMethod = payType === 'Company Card' ? 'Credit Card' : 'Reimbursement';
 
-        const [result] = await dbQuery(`INSERT INTO expenses (user_id,store_name,transaction_id,date,job_number,supervisor,description,receipt_photo_path,total_amount,tax_type,tax_amount,net_amount,status,payment_type,fees_json,expense_type,wbs_code,submitted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?,?,CURRENT_TIMESTAMP)`,
-            [req.session.user.id, store_name.trim(), transaction_id.trim(), date, jobNum, supervisor?.trim()||null, description?.trim()||null, photoPath, total, tax_type, tax, net, payType, feesJsonStr, expType, wbsCode]);
+        const [result] = await dbQuery(`INSERT INTO expenses (user_id,store_name,transaction_id,date,job_number,supervisor,description,receipt_photo_path,total_amount,tax_type,tax_amount,net_amount,status,payment_type,submission_method,fees_json,expense_type,wbs_code,submitted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?,?,?,CURRENT_TIMESTAMP)`,
+            [req.session.user.id, store_name.trim(), transaction_id.trim(), date, jobNum, supervisor?.trim()||null, description?.trim()||null, photoPath, total, tax_type, tax, net, payType, submissionMethod, feesJsonStr, expType, wbsCode]);
 
         const expId = result.insertId || result.lastID;
         await dbQuery('INSERT INTO expense_logs (expense_id, user_id, action, reason) VALUES (?, ?, ?, ?)',
             [expId, req.session.user.id, 'submitted', null]);
+
+        // Notify admins / accounting
+        const [admins] = await dbQuery("SELECT id FROM users WHERE role IN ('admin','accounting') LIMIT 5");
+        for (const a of admins) {
+            await dbQuery('INSERT INTO notifications (user_id, message, is_read, expense_id) VALUES (?, ?, 0, ?)',
+                [a.id, `**${req.session.user.first_name} ${req.session.user.last_name}** submitted a new **${submissionMethod}** expense for **$${total.toFixed(2)}** at **${store_name.trim()}**.`, expId]);
+        }
 
         res.redirect('/dashboard?view=history&success='+encodeURIComponent('Expense submitted!'));
     } catch (e) { console.error(e); res.redirect('/dashboard?view=history&error='+encodeURIComponent('Failed to save expense.')); }
@@ -1472,13 +1508,14 @@ app.post('/expenses/edit/:id', requireAuth, (req, res, next) => {
 
         const expType = payType === 'Reimbursement' ? (req.body.edit_expense_type?.trim() || null) : null;
         const wbsCode = payType === 'Reimbursement' ? (req.body.edit_wbs_code?.trim() || null) : null;
+        const submissionMethod = payType === 'Company Card' ? 'Credit Card' : 'Reimbursement';
 
         const wasRejected = exp.status === 'rejected';
         await dbQuery(`
             UPDATE expenses 
-            SET store_name=?, transaction_id=?, date=?, job_number=?, supervisor=?, description=?, receipt_photo_path=?, total_amount=?, tax_type=?, tax_amount=?, net_amount=?, payment_type=?, fees_json=?, expense_type=?, wbs_code=?, status='pending', rejection_reason=NULL
+            SET store_name=?, transaction_id=?, date=?, job_number=?, supervisor=?, description=?, receipt_photo_path=?, total_amount=?, tax_type=?, tax_amount=?, net_amount=?, payment_type=?, submission_method=?, fees_json=?, expense_type=?, wbs_code=?, status='pending', rejection_reason=NULL
             WHERE id=?
-        `, [store_name.trim(), transaction_id.trim(), date, jobNum, supervisor?.trim()||null, description?.trim()||null, photoPath, total, edit_tax_type, tax, net, payType, feesJsonStr, expType, wbsCode, req.params.id]);
+        `, [store_name.trim(), transaction_id.trim(), date, jobNum, supervisor?.trim()||null, description?.trim()||null, photoPath, total, edit_tax_type, tax, net, payType, submissionMethod, feesJsonStr, expType, wbsCode, req.params.id]);
 
         await dbQuery('INSERT INTO expense_logs (expense_id, user_id, action, reason) VALUES (?, ?, ?, ?)',
             [req.params.id, req.session.user.id, wasRejected ? 'resubmitted_after_rejection' : 'edited', null]);
@@ -1672,23 +1709,29 @@ app.get('/gas-expenses', requireAuth, async (req, res) => {
             startDate: req.query.start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             endDate: req.query.end_date || new Date().toISOString().split('T')[0],
             cardsSummary: [],
+            cardUserSummary: [],
+            userGroupedSummary: [],
             diagnosticLog: []
         };
 
-        if (activeView === 'reports' && (req.session.user.role === 'admin' || req.session.user.role === 'accounting')) {
-            // Fetch all expenses chronologically by card for calculation
+        if (activeView === 'reports') {
+            // Fetch expenses chronologically by card for calculation
+            const isAdminOrAccounting = req.session.user.role === 'admin' || req.session.user.role === 'accounting';
             const querySql = dbMode === 'mysql'
                 ? `SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned, CONCAT(u.first_name, ' ', u.last_name) AS user_name 
                    FROM gas_expenses ge 
                    JOIN gas_cards gc ON ge.gas_card_id = gc.id 
                    JOIN users u ON ge.user_id = u.id 
+                   ${isAdminOrAccounting ? '' : 'WHERE ge.user_id = ?'}
                    ORDER BY ge.gas_card_id ASC, ge.date ASC, ge.created_at ASC`
                 : `SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned, (u.first_name || ' ' || u.last_name) AS user_name 
                    FROM gas_expenses ge 
                    JOIN gas_cards gc ON ge.gas_card_id = gc.id 
                    JOIN users u ON ge.user_id = u.id 
+                   ${isAdminOrAccounting ? '' : 'WHERE ge.user_id = ?'}
                    ORDER BY ge.gas_card_id ASC, ge.date ASC, ge.created_at ASC`;
-            const [rawAll] = await dbQuery(querySql).catch(() => [[]]);
+            const params = isAdminOrAccounting ? [] : [req.session.user.id];
+            const [rawAll] = await dbQuery(querySql, params).catch(() => [[]]);
 
             // Calculate distance & hours differences in chronological sequence per card
             const cardsMap = {};
@@ -1733,6 +1776,7 @@ app.get('/gas-expenses', requireAuth, async (req, res) => {
 
             // Generate card-by-card summaries
             const summaryMap = {};
+            const cardUserSummaryMap = {};
             filteredExpenses.forEach(exp => {
                 const cardId = exp.gas_card_id;
                 if (!summaryMap[cardId]) {
@@ -1762,6 +1806,36 @@ app.get('/gas-expenses', requireAuth, async (req, res) => {
                 }
                 if (exp.distance_diff !== null) sum.distances.push(exp.distance_diff);
                 if (exp.hours_diff !== null) sum.hours.push(exp.hours_diff);
+
+                // Group by card AND user
+                const userKey = `${exp.gas_card_id}_${exp.user_id}`;
+                if (!cardUserSummaryMap[userKey]) {
+                    cardUserSummaryMap[userKey] = {
+                        card_number: exp.card_number,
+                        card_type: exp.card_type,
+                        truck_assigned: exp.truck_assigned,
+                        user_name: exp.user_name,
+                        fillups_count: 0,
+                        total_liters: 0,
+                        total_amount: 0,
+                        min_odo: null,
+                        max_odo: null,
+                        last_odo: null,
+                        distances: [],
+                        hours: []
+                    };
+                }
+                const uSum = cardUserSummaryMap[userKey];
+                uSum.fillups_count += 1;
+                uSum.total_liters += parseFloat(exp.liters_in_tank || 0);
+                uSum.total_amount += parseFloat(exp.total_amount || 0);
+                if (exp.odometer) {
+                    if (uSum.min_odo === null || exp.odometer < uSum.min_odo) uSum.min_odo = exp.odometer;
+                    if (uSum.max_odo === null || exp.odometer > uSum.max_odo) uSum.max_odo = exp.odometer;
+                    uSum.last_odo = exp.odometer;
+                }
+                if (exp.distance_diff !== null) uSum.distances.push(exp.distance_diff);
+                if (exp.hours_diff !== null) uSum.hours.push(exp.hours_diff);
             });
 
             reportData.cardsSummary = Object.values(summaryMap).map(sum => {
@@ -1777,6 +1851,36 @@ app.get('/gas-expenses', requireAuth, async (req, res) => {
                     consumption_rate: consumption
                 };
             });
+
+            reportData.cardUserSummary = Object.values(cardUserSummaryMap).map(sum => {
+                const totalDist = sum.max_odo && sum.min_odo ? (sum.max_odo - sum.min_odo) : 0;
+                const avgDist = sum.distances.length ? Math.round(sum.distances.reduce((a,b)=>a+b, 0) / sum.distances.length) : null;
+                const avgHours = sum.hours.length ? parseFloat((sum.hours.reduce((a,b)=>a+b, 0) / sum.hours.length).toFixed(1)) : null;
+                const consumption = totalDist > 0 ? parseFloat(((sum.total_liters / totalDist) * 100).toFixed(2)) : null; // L/100km
+                return {
+                    ...sum,
+                    total_distance: totalDist,
+                    avg_distance: avgDist,
+                    avg_hours: avgHours,
+                    consumption_rate: consumption
+                };
+            });
+
+            // Group by user, only including cards that were actually filled up (fillups_count > 0)
+            const userGroupedMap = {};
+            reportData.cardUserSummary.forEach(sum => {
+                if (sum.fillups_count > 0) {
+                    const userName = sum.user_name || 'Unassigned';
+                    if (!userGroupedMap[userName]) {
+                        userGroupedMap[userName] = {
+                            user_name: userName,
+                            cards: []
+                        };
+                    }
+                    userGroupedMap[userName].cards.push(sum);
+                }
+            });
+            reportData.userGroupedSummary = Object.values(userGroupedMap);
         } else {
             // Standard user gas expenses fetching
             if (req.session.user.role === 'admin' || req.session.user.role === 'accounting' || req.session.user.role === 'approver' || req.session.user.role === 'pm') {
@@ -1871,10 +1975,17 @@ app.post('/gas-expenses/add', requireAuth, async (req, res) => {
             }
 
             await dbQuery(
-                `INSERT INTO gas_expenses (user_id, gas_card_id, store_name, transaction_id, date, job_number, net_amount, tax_amount, fees_amount, total_amount, liters_in_tank, odometer, description, receipt_photo_path, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid')`,
+                `INSERT INTO gas_expenses (user_id, gas_card_id, store_name, transaction_id, date, job_number, net_amount, tax_amount, fees_amount, total_amount, liters_in_tank, odometer, description, receipt_photo_path, status, submission_method) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid', 'Gas/Fuel Card')`,
                 [req.session.user.id, gas_card_id, store_name.trim(), transaction_id.trim(), date, jobNum, net, tax, fees, total, parseFloat(req.body.liters_in_tank || 0), odo, description?.trim() || null, photoPath]
             );
+
+            // Notify admins / accounting
+            const [admins] = await dbQuery("SELECT id FROM users WHERE role IN ('admin','accounting') LIMIT 5");
+            for (const a of admins) {
+                await dbQuery('INSERT INTO notifications (user_id, message, is_read, expense_id) VALUES (?, ?, 0, NULL)',
+                    [a.id, `**${req.session.user.first_name} ${req.session.user.last_name}** submitted a new **Gas Card** expense for **$${total.toFixed(2)}** at **${store_name.trim()}**.`]);
+            }
 
             res.redirect('/gas-expenses?view=history&success=' + encodeURIComponent('Gas expense added successfully.'));
         } catch (e) {
@@ -2078,13 +2189,17 @@ app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
         const [supsRows] = await dbQuery("SELECT COUNT(*) as count FROM supervisors").catch(() => [[{count: 0}]]);
         const [jobsRows] = await dbQuery("SELECT COUNT(*) as count FROM job_numbers").catch(() => [[{count: 0}]]);
         const [gasRows] = await dbQuery("SELECT COUNT(*) as count FROM gas_expenses").catch(() => [[{count: 0}]]);
+        const [creditCardRows] = await dbQuery("SELECT COUNT(*) as count FROM expenses WHERE payment_type='Company Card'").catch(() => [[{count: 0}]]);
+        const [reimbursementRows] = await dbQuery("SELECT COUNT(*) as count FROM expenses WHERE payment_type='Reimbursement'").catch(() => [[{count: 0}]]);
         
         const stats = {
             users: usersRows?.[0]?.count || 0,
             expenses: expensesRows?.[0]?.count || 0,
             supervisors: supsRows?.[0]?.count || 0,
             jobs: jobsRows?.[0]?.count || 0,
-            gasExpenses: gasRows?.[0]?.count || 0
+            gasExpenses: gasRows?.[0]?.count || 0,
+            creditCardExpenses: creditCardRows?.[0]?.count || 0,
+            reimbursementExpenses: reimbursementRows?.[0]?.count || 0
         };
 
         const configChecks = {
@@ -2618,7 +2733,11 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
     const defaultStart = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
     const startDate = req.query.start_date || defaultStart;
     const endDate   = req.query.end_date   || today;
+    
+    const reportTarget = req.query.report_target || 'employee'; // 'employee', 'truck', 'group'
     const selectedUserId = req.query.user_id || '';
+    const selectedTruck = req.query.truck_assigned || '';
+    const selectedGroupId = req.query.group_id || '';
 
     try {
         let users;
@@ -2637,12 +2756,18 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
             users = uRows;
         }
 
+        const [groups] = await dbQuery('SELECT id, name FROM groups ORDER BY name ASC');
+        const [trucks] = await dbQuery('SELECT DISTINCT truck_assigned FROM gas_cards WHERE truck_assigned IS NOT NULL AND active = 1 ORDER BY truck_assigned ASC');
+
         let expenses = [];
         let gasExpenses = [];
         let selectedUser = null;
+        let selectedTruckName = null;
+        let selectedGroup = null;
+        let groupUserBreakdown = [];
         const pendingJobsMap = {};
 
-        if (selectedUserId) {
+        if (reportTarget === 'employee' && selectedUserId) {
             const [uCheck] = await dbQuery('SELECT * FROM users WHERE id=? LIMIT 1', [selectedUserId]);
             if (uCheck.length > 0) {
                 selectedUser = uCheck[0];
@@ -2666,27 +2791,212 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
                 expenses = expRows;
 
                 const [gasRows] = await dbQuery(`
-                    SELECT ge.*, gc.card_number, gc.card_type 
+                    SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned 
                     FROM gas_expenses ge 
                     JOIN gas_cards gc ON ge.gas_card_id = gc.id 
                     WHERE ge.user_id=? AND ge.date BETWEEN ? AND ? 
                     ORDER BY ge.date DESC
                 `, [selectedUserId, startDate, endDate]);
                 gasExpenses = gasRows;
+            }
+        } else if (reportTarget === 'truck' && selectedTruck) {
+            selectedTruckName = selectedTruck;
+            const [gasRows] = await dbQuery(`
+                SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned,
+                       (u.first_name || ' ' || u.last_name) AS user_name
+                FROM gas_expenses ge 
+                JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                JOIN users u ON ge.user_id = u.id
+                WHERE gc.truck_assigned=? AND ge.date BETWEEN ? AND ? 
+                ORDER BY ge.date DESC
+            `, [selectedTruck, startDate, endDate]).catch(async () => {
+                return await dbQuery(`
+                    SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned,
+                           CONCAT(u.first_name, ' ', u.last_name) AS user_name
+                    FROM gas_expenses ge 
+                    JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                    JOIN users u ON ge.user_id = u.id
+                    WHERE gc.truck_assigned=? AND ge.date BETWEEN ? AND ? 
+                    ORDER BY ge.date DESC
+                `, [selectedTruck, startDate, endDate]);
+            });
+            gasExpenses = gasRows;
+        } else if (reportTarget === 'group' && selectedGroupId) {
+            const [gCheck] = await dbQuery('SELECT * FROM groups WHERE id=? LIMIT 1', [selectedGroupId]);
+            if (gCheck.length > 0) {
+                selectedGroup = gCheck[0];
+                const [memberRows] = await dbQuery('SELECT user_id FROM group_members WHERE group_id = ?', [selectedGroupId]);
+                const memberIds = memberRows.map(r => r.user_id);
+                if (memberIds.length > 0) {
+                    const placeholders = memberIds.map(() => '?').join(',');
+                    const [expRows] = await dbQuery(`
+                        SELECT e.*, u_app.first_name || ' ' || u_app.last_name AS approved_by_name,
+                               u.first_name || ' ' || u.last_name AS user_name
+                        FROM expenses e
+                        LEFT JOIN users u_app ON e.approved_by = u_app.id
+                        JOIN users u ON e.user_id = u.id
+                        WHERE e.user_id IN (${placeholders}) AND e.date BETWEEN ? AND ?
+                        AND e.status NOT IN ('voided')
+                        ORDER BY e.date DESC
+                    `, [...memberIds, startDate, endDate]).catch(async () => {
+                        return await dbQuery(`
+                            SELECT e.*, CONCAT(u_app.first_name, ' ', u_app.last_name) AS approved_by_name,
+                                   CONCAT(u.first_name, ' ', u.last_name) AS user_name
+                            FROM expenses e
+                            LEFT JOIN users u_app ON e.approved_by = u_app.id
+                            JOIN users u ON e.user_id = u.id
+                            WHERE e.user_id IN (${placeholders}) AND e.date BETWEEN ? AND ?
+                            AND e.status NOT IN ('voided')
+                            ORDER BY e.date DESC
+                        `, [...memberIds, startDate, endDate]);
+                    });
+                    expenses = expRows;
 
-                // Load pending job numbers to support inline approval
-                const [pendingJobs] = await dbQuery('SELECT id, job_number FROM job_numbers WHERE pending_confirmation=1');
-                pendingJobs.forEach(j => {
-                    pendingJobsMap[j.job_number.trim().toUpperCase()] = j.id;
-                });
+                    const [gasRows] = await dbQuery(`
+                        SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned,
+                               (u.first_name || ' ' || u.last_name) AS user_name
+                        FROM gas_expenses ge 
+                        JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                        JOIN users u ON ge.user_id = u.id
+                        WHERE ge.user_id IN (${placeholders}) AND ge.date BETWEEN ? AND ? 
+                        ORDER BY ge.date DESC
+                    `, [...memberIds, startDate, endDate]).catch(async () => {
+                        return await dbQuery(`
+                            SELECT ge.*, gc.card_number, gc.card_type, gc.truck_assigned,
+                                   CONCAT(u.first_name, ' ', u.last_name) AS user_name
+                            FROM gas_expenses ge 
+                            JOIN gas_cards gc ON ge.gas_card_id = gc.id 
+                            JOIN users u ON ge.user_id = u.id
+                            WHERE ge.user_id IN (${placeholders}) AND ge.date BETWEEN ? AND ? 
+                            ORDER BY ge.date DESC
+                        `, [...memberIds, startDate, endDate]);
+                    });
+                    gasExpenses = gasRows;
+
+                    const breakdownMap = {};
+                    const [usersInGroup] = await dbQuery(`
+                        SELECT id, first_name || ' ' || last_name AS full_name 
+                        FROM users WHERE id IN (${placeholders})
+                    `, memberIds).catch(async () => {
+                        return await dbQuery(`
+                            SELECT id, CONCAT(first_name, ' ', last_name) AS full_name 
+                            FROM users WHERE id IN (${placeholders})
+                        `, memberIds);
+                    });
+                    usersInGroup.forEach(u => {
+                        breakdownMap[u.id] = {
+                            user_name: u.full_name,
+                            reimbursement_total: 0,
+                            company_card_total: 0,
+                            gas_total: 0,
+                            total_spent: 0
+                        };
+                    });
+                    expenses.forEach(e => {
+                        const b = breakdownMap[e.user_id];
+                        if (b) {
+                            const amt = parseFloat(e.total_amount || 0);
+                            if (e.payment_type === 'Company Card') {
+                                b.company_card_total += amt;
+                            } else {
+                                b.reimbursement_total += amt;
+                            }
+                            b.total_spent += amt;
+                        }
+                    });
+                    gasExpenses.forEach(g => {
+                        const b = breakdownMap[g.user_id];
+                        if (b) {
+                            const amt = parseFloat(g.total_amount || 0);
+                            b.gas_total += amt;
+                            b.total_spent += amt;
+                        }
+                    });
+                    groupUserBreakdown = Object.values(breakdownMap);
+                }
             }
         }
+
+        const gasAnalytics = [];
+        if (gasExpenses.length > 0) {
+            const userCardsMap = {};
+            gasExpenses.forEach(exp => {
+                const cardId = exp.gas_card_id;
+                if (!userCardsMap[cardId]) userCardsMap[cardId] = [];
+                userCardsMap[cardId].push(exp);
+            });
+
+            Object.keys(userCardsMap).forEach(cardId => {
+                const list = [...userCardsMap[cardId]].sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                let minOdo = null;
+                let maxOdo = null;
+                let totalSpent = 0;
+                let totalLiters = 0;
+                let fillupsCount = list.length;
+                const distances = [];
+                const hours = [];
+
+                for (let i = 0; i < list.length; i++) {
+                    const exp = list[i];
+                    totalSpent += parseFloat(exp.total_amount || 0);
+                    totalLiters += parseFloat(exp.liters_in_tank || 0);
+                    
+                    if (exp.odometer) {
+                        if (minOdo === null || exp.odometer < minOdo) minOdo = exp.odometer;
+                        if (maxOdo === null || exp.odometer > maxOdo) maxOdo = exp.odometer;
+                    }
+
+                    if (i > 0) {
+                        const prev = list[i - 1];
+                        if (exp.odometer && prev.odometer) {
+                            distances.push(exp.odometer - prev.odometer);
+                        }
+                        const tCurr = new Date(exp.created_at || exp.date);
+                        const tPrev = new Date(prev.created_at || prev.date);
+                        const diffMs = tCurr - tPrev;
+                        hours.push(parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1)));
+                    }
+                }
+
+                const totalDist = (maxOdo && minOdo) ? (maxOdo - minOdo) : 0;
+                const avgDist = distances.length ? Math.round(distances.reduce((a,b)=>a+b, 0) / distances.length) : null;
+                const avgHours = hours.length ? parseFloat((hours.reduce((a,b)=>a+b, 0) / hours.length).toFixed(1)) : null;
+                const consumption = totalDist > 0 ? parseFloat(((totalLiters / totalDist) * 100).toFixed(2)) : null;
+
+                gasAnalytics.push({
+                    card_number: list[0].card_number,
+                    card_type: list[0].card_type,
+                    truck_assigned: list[0].truck_assigned,
+                    fillups_count: fillupsCount,
+                    total_amount: totalSpent,
+                    total_liters: totalLiters,
+                    total_distance: totalDist,
+                    consumption_rate: consumption,
+                    avg_distance: avgDist,
+                    avg_hours: avgHours,
+                    last_odo: maxOdo
+                });
+            });
+        }
+
+        const [pendingJobs] = await dbQuery('SELECT id, job_number FROM job_numbers WHERE pending_confirmation=1');
+        pendingJobs.forEach(j => {
+            pendingJobsMap[j.job_number.trim().toUpperCase()] = j.id;
+        });
 
         res.render('admin/reports', {
             title: 'Expense Reports',
             users,
+            groups,
+            trucks,
+            reportTarget,
+            selectedTruck: selectedTruckName,
+            selectedGroup,
+            groupUserBreakdown,
             expenses,
             gasExpenses,
+            gasAnalytics,
             selectedUser,
             pendingJobsMap,
             startDate,
@@ -3179,7 +3489,8 @@ app.get('/admin/export/pdf/:userId', requireAuth, requireAdmin, async (req, res)
         const reimbursements = expenses.filter(e => e.payment_type !== 'Company Card');
         const companyCards = expenses.filter(e => e.payment_type === 'Company Card');
 
-        const cols = [50, 115, 210, 285, 340, 410, 480];
+        const cols = [50, 118, 218, 290, 348, 396, 466];
+        const rWidths  = [63,   95,             65,     50,     43,   64,       75];
 
         // --- SECTION 1: REIMBURSEMENTS ---
         if (reportType === 'all' || reportType === 'reimbursements') {
@@ -3203,45 +3514,44 @@ app.get('/admin/export/pdf/:userId', requireAuth, requireAdmin, async (req, res)
                     doc.fillColor('#0073EA').fontSize(9).font('Helvetica-Bold').text(`Job: ${jobKey}`, 57, rBarY1 + 4, { lineBreak: false });
                     doc.y = rBarY1 + 16;
 
-                    doc.rect(50, doc.y, 495, 18).fill('#F6F8FA');
-                    const ty = doc.y + 4;
+                    const hBarY = doc.y;
+                    doc.rect(50, hBarY, 495, 16).fill('#F0EDE8');
                     doc.fillColor('#676879').fontSize(7.5).font('Helvetica-Bold');
-                    ['Date','Store','Txn ID','Supervisor','Tax','Net $','Total $'].forEach((h, i) => doc.text(h, cols[i], ty));
-                    doc.moveDown(1.5);
+                    const rHeaders = ['Date','Store / Vendor','Txn ID','Supervisor','Tax','Net ($)','Total ($)'];
+                    rHeaders.forEach((h, i) => doc.text(h, cols[i], hBarY + 4, { width: rWidths[i], lineBreak: false }));
+                    doc.y = hBarY + 20;
 
                     let jobTotal = 0;
                     jobExpenses.forEach((e, idx) => {
                         const rowY = doc.y;
                         const hasApproval = e.status === 'approved' && e.approved_at;
-                        const rowHeight = hasApproval ? 23 : 16;
-                        if (idx % 2 === 0) doc.rect(50, rowY - 2, 495, rowHeight).fill('#FAFBFB');
+                        const rowHeight = hasApproval ? 21 : 15;
+                        if (idx % 2 === 0) doc.rect(50, rowY - 1, 495, rowHeight).fill('#FAFBFB');
                         const d = typeof e.date === 'string' ? e.date.split('T')[0] : '';
                         doc.fillColor('#323338').fontSize(7.5).font('Helvetica');
-                        doc.text(d, cols[0], rowY, { width: 60 });
-                        doc.text(e.store_name, cols[1], rowY, { width: 90 });
+                        doc.text(d,                                         cols[0], rowY, { width: rWidths[0], lineBreak: false });
+                        doc.text(e.store_name,                              cols[1], rowY, { width: rWidths[1], lineBreak: false });
                         if (hasApproval) {
                             const appBy = e.approved_by_name ? `by ${e.approved_by_name}` : '';
                             const appAt = typeof e.approved_at === 'string' ? e.approved_at.split('T')[0] : '';
                             doc.fillColor('#0073EA').fontSize(6).font('Helvetica-Oblique');
-                            doc.text(`Approved ${appBy} on ${appAt}`, cols[1], rowY + 9, { width: 90 });
+                            doc.text(`Approved ${appBy} on ${appAt}`, cols[1], rowY + 9, { width: rWidths[1], lineBreak: false });
                         }
                         doc.fillColor('#323338').fontSize(7.5).font('Helvetica');
-                        doc.text(e.transaction_id, cols[2], rowY, { width: 70 });
-                        doc.text(e.supervisor || '-', cols[3], rowY, { width: 65 });
-                        doc.text(e.tax_type, cols[4], rowY, { width: 55 });
-                        doc.text(`$${parseFloat(e.net_amount).toFixed(2)}`, cols[5], rowY, { width: 60 });
-                        doc.text(`$${parseFloat(e.total_amount).toFixed(2)}`, cols[6], rowY, { width: 60 });
-                        if (hasApproval) {
-                            doc.moveDown(1.4);
-                        } else {
-                            doc.moveDown(1);
-                        }
+                        doc.text(e.transaction_id || '-',                   cols[2], rowY, { width: rWidths[2], lineBreak: false });
+                        doc.text(e.supervisor || '-',                       cols[3], rowY, { width: rWidths[3], lineBreak: false });
+                        doc.text(e.tax_type || 'GST',                       cols[4], rowY, { width: rWidths[4], lineBreak: false });
+                        doc.text(`$${parseFloat(e.net_amount).toFixed(2)}`, cols[5], rowY, { width: rWidths[5], lineBreak: false });
+                        doc.font('Helvetica-Bold').text(`$${parseFloat(e.total_amount).toFixed(2)}`, cols[6], rowY, { width: rWidths[6], lineBreak: false });
+                        doc.font('Helvetica');
+                        doc.y = rowY + (hasApproval ? 20 : 14);
                         jobTotal += parseFloat(e.total_amount);
                     });
 
+                    doc.moveDown(0.3);
                     doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#323338');
-                    doc.text(`Job Subtotal: $${jobTotal.toFixed(2)}`, 380, doc.y, { align: 'right', width: 165 });
-                    doc.moveDown(1.5);
+                    doc.text(`Job Subtotal: $${jobTotal.toFixed(2)}`, 350, doc.y, { align: 'right', width: 195 });
+                    doc.moveDown(1.2);
                     sectionTotal += jobTotal;
                 }
                 doc.fillColor('#0073EA').fontSize(11).font('Helvetica-Bold').text(`Total Reimbursable: $${sectionTotal.toFixed(2)}`, 300, doc.y, { align: 'right', width: 245 });
@@ -3271,45 +3581,44 @@ app.get('/admin/export/pdf/:userId', requireAuth, requireAdmin, async (req, res)
                     doc.fillColor('#323338').fontSize(9).font('Helvetica-Bold').text(`Job: ${jobKey}`, 57, rBarY2 + 4, { lineBreak: false });
                     doc.y = rBarY2 + 16;
 
-                    doc.rect(50, doc.y, 495, 18).fill('#F6F8FA');
-                    const ty = doc.y + 4;
+                    const hBarY = doc.y;
+                    doc.rect(50, hBarY, 495, 16).fill('#F0EDE8');
                     doc.fillColor('#676879').fontSize(7.5).font('Helvetica-Bold');
-                    ['Date','Store','Txn ID','Supervisor','Tax','Net $','Total $'].forEach((h, i) => doc.text(h, cols[i], ty));
-                    doc.moveDown(1.5);
+                    const cHeaders = ['Date','Store / Vendor','Txn ID','Supervisor','Tax','Net ($)','Total ($)'];
+                    cHeaders.forEach((h, i) => doc.text(h, cols[i], hBarY + 4, { width: rWidths[i], lineBreak: false }));
+                    doc.y = hBarY + 20;
 
                     let jobTotal = 0;
                     jobExpenses.forEach((e, idx) => {
                         const rowY = doc.y;
                         const hasApproval = e.status === 'approved' && e.approved_at;
-                        const rowHeight = hasApproval ? 23 : 16;
-                        if (idx % 2 === 0) doc.rect(50, rowY - 2, 495, rowHeight).fill('#FAFBFB');
+                        const rowHeight = hasApproval ? 21 : 15;
+                        if (idx % 2 === 0) doc.rect(50, rowY - 1, 495, rowHeight).fill('#FAFBFB');
                         const d = typeof e.date === 'string' ? e.date.split('T')[0] : '';
                         doc.fillColor('#323338').fontSize(7.5).font('Helvetica');
-                        doc.text(d, cols[0], rowY, { width: 60 });
-                        doc.text(e.store_name, cols[1], rowY, { width: 90 });
+                        doc.text(d,                                         cols[0], rowY, { width: rWidths[0], lineBreak: false });
+                        doc.text(e.store_name,                              cols[1], rowY, { width: rWidths[1], lineBreak: false });
                         if (hasApproval) {
                             const appBy = e.approved_by_name ? `by ${e.approved_by_name}` : '';
                             const appAt = typeof e.approved_at === 'string' ? e.approved_at.split('T')[0] : '';
                             doc.fillColor('#0073EA').fontSize(6).font('Helvetica-Oblique');
-                            doc.text(`Approved ${appBy} on ${appAt}`, cols[1], rowY + 9, { width: 90 });
+                            doc.text(`Approved ${appBy} on ${appAt}`, cols[1], rowY + 9, { width: rWidths[1], lineBreak: false });
                         }
                         doc.fillColor('#323338').fontSize(7.5).font('Helvetica');
-                        doc.text(e.transaction_id, cols[2], rowY, { width: 70 });
-                        doc.text(e.supervisor || '-', cols[3], rowY, { width: 65 });
-                        doc.text(e.tax_type, cols[4], rowY, { width: 55 });
-                        doc.text(`$${parseFloat(e.net_amount).toFixed(2)}`, cols[5], rowY, { width: 60 });
-                        doc.text(`$${parseFloat(e.total_amount).toFixed(2)}`, cols[6], rowY, { width: 60 });
-                        if (hasApproval) {
-                            doc.moveDown(1.4);
-                        } else {
-                            doc.moveDown(1);
-                        }
+                        doc.text(e.transaction_id || '-',                   cols[2], rowY, { width: rWidths[2], lineBreak: false });
+                        doc.text(e.supervisor || '-',                       cols[3], rowY, { width: rWidths[3], lineBreak: false });
+                        doc.text(e.tax_type || 'GST',                       cols[4], rowY, { width: rWidths[4], lineBreak: false });
+                        doc.text(`$${parseFloat(e.net_amount).toFixed(2)}`, cols[5], rowY, { width: rWidths[5], lineBreak: false });
+                        doc.font('Helvetica-Bold').text(`$${parseFloat(e.total_amount).toFixed(2)}`, cols[6], rowY, { width: rWidths[6], lineBreak: false });
+                        doc.font('Helvetica');
+                        doc.y = rowY + (hasApproval ? 20 : 14);
                         jobTotal += parseFloat(e.total_amount);
                     });
 
+                    doc.moveDown(0.3);
                     doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#323338');
-                    doc.text(`Job Subtotal: $${jobTotal.toFixed(2)}`, 380, doc.y, { align: 'right', width: 165 });
-                    doc.moveDown(1.5);
+                    doc.text(`Job Subtotal: $${jobTotal.toFixed(2)}`, 350, doc.y, { align: 'right', width: 195 });
+                    doc.moveDown(1.2);
                     sectionTotal += jobTotal;
                 }
                 doc.fillColor('#323338').fontSize(11).font('Helvetica-Bold').text(`Total Company Card Cost: $${sectionTotal.toFixed(2)}`, 300, doc.y, { align: 'right', width: 245 });

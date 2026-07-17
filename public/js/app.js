@@ -209,7 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             scanStatusMsg.style.display = 'block';
             scanStatusMsg.style.color = 'var(--primary)';
-            scanStatusMsg.innerHTML = '<i class="fa-solid fa-brain fa-pulse"></i> Gemini AI is reading your receipt...';
+            scanStatusMsg.innerHTML = 'Gemini AI is reading your receipt...';
 
             const formData = new FormData();
             formData.append('receipt_photo', file);
@@ -319,7 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             scanStatusMsgGas.style.display = 'block';
             scanStatusMsgGas.style.color = 'var(--primary)';
-            scanStatusMsgGas.innerHTML = '<i class="fa-solid fa-brain fa-pulse"></i> Gemini AI is reading your receipt...';
+            scanStatusMsgGas.innerHTML = 'Gemini AI is reading your receipt...';
 
             const formData = new FormData();
             formData.append('receipt_photo', file);

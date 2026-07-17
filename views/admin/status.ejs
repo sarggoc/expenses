@@ -52,13 +52,27 @@
         </div>
     </div>
     
-    <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light);">
-        <div style="background: var(--success-light); color: var(--success); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+    <div class="card" style="padding: 1.25rem; display: flex; align-items: flex-start; gap: 1rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light); grid-column: span 1;">
+        <div style="background: var(--success-light); color: var(--success); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; margin-top: 0.25rem;">
             <i class="fa-solid fa-file-invoice-dollar"></i>
         </div>
-        <div>
+        <div style="flex-grow: 1;">
             <div style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Claims</div>
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);"><%= stats.expenses %></div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text); margin-bottom: 0.5rem;"><%= stats.expenses + stats.gasExpenses %></div>
+            <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 0.35rem;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid fa-hand-holding-dollar" style="color: #2ecc71; width: 14px;"></i> Reimbursements:</span>
+                    <strong style="color: var(--text);"><%= stats.reimbursementExpenses %></strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid fa-credit-card" style="color: #0078d7; width: 14px;"></i> Credit Cards:</span>
+                    <strong style="color: var(--text);"><%= stats.creditCardExpenses %></strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid fa-gas-pump" style="color: #e67e22; width: 14px;"></i> Gas Cards:</span>
+                    <strong style="color: var(--text);"><%= stats.gasExpenses %></strong>
+                </div>
+            </div>
         </div>
     </div>
 

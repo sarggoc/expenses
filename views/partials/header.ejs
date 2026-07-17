@@ -94,9 +94,9 @@
                     <a href="/gas-expenses?view=history" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && (locals.activeView === 'history' || !locals.activeView) ? 'active' : '' %>">
                         <i class="fa-solid fa-history"></i> Audit &amp; History
                     </a>
-                    <% if (user.role === 'admin' || user.role === 'accounting') { %>
+                    <% if (user.role === 'admin' || user.role === 'accounting' || locals.hasGasCard) { %>
                         <a href="/gas-expenses?view=reports" class="sidebar-sub-link <%= locals.activePage === 'gas-expenses' && locals.activeView === 'reports' ? 'active' : '' %>">
-                            <i class="fa-solid fa-chart-line"></i> Gas Reports &amp; Diagnostics
+                            <i class="fa-solid fa-chart-line"></i> <%= (user.role === 'admin' || user.role === 'accounting') ? 'Gas Reports &amp; Diagnostics' : 'My Card Analytics' %>
                         </a>
                     <% } %>
                 </div>

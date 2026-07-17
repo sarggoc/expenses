@@ -143,7 +143,7 @@
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*" capture="environment" style="flex: 1;">
                                 <button type="button" class="btn btn-outline" id="btn-scan-receipt-gas" style="padding: 0.55rem 0.8rem; margin: 0; font-size: 0.8rem;" title="Auto-scan receipt details using AI">
-                                    <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i> AI Scan
+                                    AI Scan
                                 </button>
                             </div>
                             <div id="scan-status-message-gas" style="display: none; font-size: 0.75rem; margin-top: 0.35rem; font-weight: 600;"></div>
@@ -162,7 +162,7 @@
             </div>
         </div>
 
-    <% } else { %>
+    <% } else if (locals.activeView === 'history' || !locals.activeView) { %>
         <!-- ═══ GAS EXPENSES HISTORY VIEW (Default) ═══ -->
         <div class="panel" style="min-height: 500px;">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
@@ -363,49 +363,67 @@
                         </div>
                     </div>
 
-                    <!-- Card Summary Table -->
-                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Summary Per Card
-                    </h3>
-                    <div class="table-wrap" style="margin-bottom: 2rem;">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Card Info</th>
-                                    <th>Assigned User</th>
-                                    <th style="text-align: right;">Fillups</th>
-                                    <th style="text-align: right;">Total Spent</th>
-                                    <th style="text-align: right;">Total Liters</th>
-                                    <th style="text-align: right;">Last Odo</th>
-                                    <th style="text-align: right;">Dist. Travelled</th>
-                                    <th style="text-align: right;">Consumption</th>
-                                    <th style="text-align: right;">Avg. Dist between Fillups</th>
-                                    <th style="text-align: right;">Avg. Hours between Fillups</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% reportData.cardsSummary.forEach(c => { %>
-                                    <tr>
-                                        <td>
-                                            <div style="font-weight: 600; font-size: 0.85rem;">•••• <%= c.card_number.slice(-4) %></div>
-                                            <div style="font-size: 0.72rem; color: var(--text-muted);"><%= c.card_type %> <%= c.truck_assigned ? ' | Truck ' + c.truck_assigned : '' %></div>
-                                        </td>
-                                        <td><strong><%= c.user_name || 'Unassigned' %></strong></td>
-                                        <td style="text-align: right;"><%= c.fillups_count %></td>
-                                        <td style="text-align: right; font-weight: 600; color: var(--text);">$<%= c.total_amount.toFixed(2) %></td>
-                                        <td style="text-align: right;"><%= c.total_liters.toFixed(1) %> L</td>
-                                        <td style="text-align: right;"><%= c.last_odo ? c.last_odo.toLocaleString() + ' km' : '—' %></td>
-                                        <td style="text-align: right;"><%= c.total_distance ? c.total_distance.toLocaleString() + ' km' : '—' %></td>
-                                        <td style="text-align: right; font-weight: 600; color: var(--primary);">
-                                            <%= c.consumption_rate ? c.consumption_rate.toFixed(1) + ' L/100km' : '—' %>
-                                        </td>
-                                        <td style="text-align: right;"><%= c.avg_distance ? c.avg_distance.toLocaleString() + ' km' : '—' %></td>
-                                        <td style="text-align: right;"><%= c.avg_hours ? c.avg_hours + ' hrs' : '—' %></td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
-                    </div>
+                    <!-- Grouped Driver & Truck Analytics -->
+                    <% if (reportData.userGroupedSummary && reportData.userGroupedSummary.length > 0) { %>
+                        <h3 style="font-size: 1.1rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 1rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fa-solid fa-truck-ramp-box" style="color: var(--primary);"></i> Driver &amp; Truck Fuel Analytics
+                        </h3>
+                        
+                        <% reportData.userGroupedSummary.forEach(userGroup => { %>
+                            <div class="card-grouped-section" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+                                    <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 0.4rem;">
+                                        <i class="fa-solid fa-user" style="color: var(--text-muted);"></i> <%= userGroup.user_name %>
+                                    </h4>
+                                    <span class="badge" style="background: var(--primary-light); color: var(--primary); font-weight: 600; font-size: 0.72rem; border: none;">
+                                        <%= userGroup.cards.length %> active truck(s) / card(s)
+                                    </span>
+                                </div>
+                                
+                                <div class="table-wrap" style="margin-bottom: 0;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Card Info</th>
+                                                <th>Truck</th>
+                                                <th style="text-align: right;">Fillups</th>
+                                                <th style="text-align: right;">Total Spent</th>
+                                                <th style="text-align: right;">Total Liters</th>
+                                                <th style="text-align: right;">Last Odo</th>
+                                                <th style="text-align: right;">Dist. Travelled</th>
+                                                <th style="text-align: right;">Consumption</th>
+                                                <th style="text-align: right;">Avg. Dist (Fillup)</th>
+                                                <th style="text-align: right;">Avg. Hours (Fillup)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <% userGroup.cards.forEach(c => { %>
+                                                <tr>
+                                                    <td>
+                                                        <div style="font-weight: 600; font-size: 0.85rem;">•••• <%= c.card_number.slice(-4) %></div>
+                                                        <div style="font-size: 0.72rem; color: var(--text-muted);"><%= c.card_type %></div>
+                                                    </td>
+                                                    <td>
+                                                        <strong style="color: var(--primary);"><%= c.truck_assigned || 'Personal / Unassigned' %></strong>
+                                                    </td>
+                                                    <td style="text-align: right;"><%= c.fillups_count %></td>
+                                                    <td style="text-align: right; font-weight: 600; color: var(--text);">$<%= c.total_amount.toFixed(2) %></td>
+                                                    <td style="text-align: right;"><%= c.total_liters.toFixed(1) %> L</td>
+                                                    <td style="text-align: right;"><%= c.last_odo ? c.last_odo.toLocaleString() + ' km' : '—' %></td>
+                                                    <td style="text-align: right;"><%= c.total_distance ? c.total_distance.toLocaleString() + ' km' : '—' %></td>
+                                                    <td style="text-align: right; font-weight: 600; color: var(--success);">
+                                                        <%= c.consumption_rate ? c.consumption_rate.toFixed(1) + ' L/100km' : '—' %>
+                                                    </td>
+                                                    <td style="text-align: right;"><%= c.avg_distance ? c.avg_distance.toLocaleString() + ' km' : '—' %></td>
+                                                    <td style="text-align: right;"><%= c.avg_hours ? c.avg_hours + ' hrs' : '—' %></td>
+                                                </tr>
+                                            <% }) %>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        <% }) %>
+                    <% } %>
 
                     <!-- Diagnostic Odometer Segment Log -->
                     <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
