@@ -95,7 +95,9 @@ body {
     z-index: 100;
     border-right: 1px solid var(--sidebar-border);
     transition: width var(--transition), transform var(--transition);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Logo */
@@ -611,7 +613,7 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
 }
 @media (max-width: 768px) {
     :root { --sidebar-width: 0px; }
-    .sidebar { transform: translateX(-240px); width: 240px; }
+    .sidebar { transform: translateX(-240px); width: 240px; z-index: 1500; }
     .sidebar.open { transform: translateX(0); }
     .main-wrapper.has-sidebar { margin-left: 0; }
     main { padding: 1rem; }
@@ -845,10 +847,14 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
         inset: 0;
         background: rgba(0,0,0,0.5);
         backdrop-filter: blur(2px);
-        z-index: 99;
+        z-index: 1499;
     }
     .sidebar-overlay.open {
         display: block;
+    }
+    
+    .sidebar-bottom {
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
     }
 
     .main-wrapper.has-sidebar {
