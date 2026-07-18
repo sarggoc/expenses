@@ -387,8 +387,9 @@
         <% if (user) { %>
         <!-- Mobile Header Bar -->
         <header class="mobile-header">
-            <!-- Hamburger hidden on mobile — bottom nav replaces sidebar -->
-            <span style="width:38px;"></span>
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open Menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
             <div class="mobile-logo" style="display: flex; align-items: center;">
                 <% if (locals.settings && locals.settings.custom_logo_path) { %>
                     <img src="<%= locals.settings.custom_logo_path %>" alt="Logo" class="custom-logo-img" style="max-height: 28px; max-width: 100px; object-fit: contain; border-radius: 4px;">
