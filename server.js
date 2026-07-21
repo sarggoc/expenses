@@ -256,6 +256,12 @@ async function initSQLite() {
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN expense_type TEXT DEFAULT NULL`); } catch (e) {}
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN payout_status TEXT DEFAULT 'unpaid'`); } catch (e) {}
     try { await runSQLite(`ALTER TABLE groups ADD COLUMN delegate_approver_id INTEGER DEFAULT NULL`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN province TEXT DEFAULT 'ON'`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN gst_amount REAL DEFAULT 0`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN pst_amount REAL DEFAULT 0`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN hst_amount REAL DEFAULT 0`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN claimable_itc REAL DEFAULT 0`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN vendor_gst_number TEXT DEFAULT NULL`); } catch (e) {}
     try { await runSQLite(`CREATE TABLE IF NOT EXISTS reimbursement_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
@@ -2212,6 +2218,127 @@ app.get('/admin/changelog', requireAuth, requireAdminOrApprover, (req, res) => {
         error: req.query.error || null,
         success: req.query.success || null
     });
+});
+
+app.get('/admin/tax-report', requireAuth, requireAdminOrApprover, async (req, res) => {
+    res.locals.activePage = 'tax-report';
+    const selectedYear = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
+    const startDate = `${selectedYear}-01-01`;
+    const endDate = `${selectedYear}-12-31`;
+
+    try {
+        const [expenses] = await dbQuery(`
+            SELECT e.*, u.first_name, u.last_name
+            FROM expenses e
+            LEFT JOIN users u ON e.user_id = u.id
+            WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+            ORDER BY e.date ASC
+        `, [startDate, endDate]).catch(() => [[]]);
+
+        const [gasExpenses] = await dbQuery(`
+            SELECT ge.*, u.first_name, u.last_name
+            FROM gas_expenses ge
+            LEFT JOIN users u ON ge.user_id = u.id
+            WHERE ge.date BETWEEN ? AND ?
+            ORDER BY ge.date ASC
+        `, [startDate, endDate]).catch(() => [[]]);
+
+        let totalGross = 0;
+        let totalNet = 0;
+        let totalGst = 0;
+        let totalHst = 0;
+        let totalPst = 0;
+        let totalItcClaimable = 0;
+        let totalNonClaimableTax = 0;
+
+        const byType = {
+            'Reimbursement': { gross: 0, net: 0, tax: 0, itc: 0 },
+            'Company Card': { gross: 0, net: 0, tax: 0, itc: 0 },
+            'Gas Expense': { gross: 0, net: 0, tax: 0, itc: 0 }
+        };
+
+        const byProvince = {};
+
+        expenses.forEach(e => {
+            const gross = parseFloat(e.total_amount) || 0;
+            const net = parseFloat(e.net_amount) || 0;
+            const tax = parseFloat(e.tax_amount) || 0;
+            const taxType = e.tax_type || 'GST';
+            const category = (e.expense_type || '').toLowerCase();
+            const prov = e.province || 'ON';
+
+            let gst = 0, hst = 0, pst = 0;
+            if (taxType === 'GST') gst = tax;
+            else if (taxType === 'HST13' || taxType === 'HST15') hst = tax;
+
+            let isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment') || category.includes('dining');
+            let itc = isMeal ? (tax * 0.5) : tax;
+            let nonClaimable = tax - itc;
+
+            totalGross += gross;
+            totalNet += net;
+            totalGst += gst;
+            totalHst += hst;
+            totalPst += pst;
+            totalItcClaimable += itc;
+            totalNonClaimableTax += nonClaimable;
+
+            const pType = e.payment_type || 'Reimbursement';
+            if (byType[pType]) {
+                byType[pType].gross += gross;
+                byType[pType].net += net;
+                byType[pType].tax += tax;
+                byType[pType].itc += itc;
+            }
+
+            if (!byProvince[prov]) byProvince[prov] = { gross: 0, tax: 0, itc: 0 };
+            byProvince[prov].gross += gross;
+            byProvince[prov].tax += tax;
+            byProvince[prov].itc += itc;
+        });
+
+        gasExpenses.forEach(ge => {
+            const gross = parseFloat(ge.total_amount) || 0;
+            const net = parseFloat(ge.net_amount) || 0;
+            const tax = parseFloat(ge.tax_amount) || 0;
+            const prov = 'ON';
+
+            totalGross += gross;
+            totalNet += net;
+            totalGst += tax;
+            totalItcClaimable += tax;
+
+            byType['Gas Expense'].gross += gross;
+            byType['Gas Expense'].net += net;
+            byType['Gas Expense'].tax += tax;
+            byType['Gas Expense'].itc += tax;
+
+            if (!byProvince[prov]) byProvince[prov] = { gross: 0, tax: 0, itc: 0 };
+            byProvince[prov].gross += gross;
+            byProvince[prov].tax += tax;
+            byProvince[prov].itc += tax;
+        });
+
+        res.render('admin/tax_report', {
+            title: 'Canadian Tax & CRA ITCs Report',
+            selectedYear,
+            totalGross,
+            totalNet,
+            totalGst,
+            totalHst,
+            totalPst,
+            totalItcClaimable,
+            totalNonClaimableTax,
+            byType,
+            byProvince,
+            expensesCount: expenses.length + gasExpenses.length,
+            error: req.query.error || null,
+            success: req.query.success || null
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Failed to generate Canadian Tax Report.');
+    }
 });
 
 app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {

@@ -800,3 +800,30 @@ function updateSortIcon(headerEl, state) {
     }
 }
 
+// ── Auto Reverse Tax Calculator ──
+window.autoCalculateReverseTax = function() {
+    const grossInput = document.getElementById('gross_total_input');
+    const taxSelect = document.getElementById('tax_type');
+    const netInput = document.getElementById('amount');
+
+    if (!grossInput || !taxSelect || !netInput) return;
+
+    const gross = parseFloat(grossInput.value);
+    if (isNaN(gross) || gross <= 0) return;
+
+    const taxType = taxSelect.value;
+    let rate = 0;
+    if (taxType === 'GST') rate = 0.05;
+    else if (taxType === 'HST13') rate = 0.13;
+    else if (taxType === 'HST15') rate = 0.15;
+
+    if (rate > 0) {
+        const net = gross / (1 + rate);
+        netInput.value = net.toFixed(2);
+        if (typeof calculateTotal === 'function') calculateTotal();
+    } else {
+        netInput.value = gross.toFixed(2);
+        if (typeof calculateTotal === 'function') calculateTotal();
+    }
+};
+

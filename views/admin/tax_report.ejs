@@ -1,0 +1,143 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-canadian-maple-leaf" style="color: #e74c3c;"></i> Canadian Tax &amp; <span>CRA ITCs</span></h1>
+        <p class="admin-page-sub">Annual Input Tax Credit (ITC) calculations, Line 108 summaries, and provincial tax audit reports.</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <form method="GET" action="/admin/tax-report" style="display: flex; gap: 0.5rem; align-items: center;">
+            <label for="yearSelect" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Tax Year:</label>
+            <select id="yearSelect" name="year" onchange="this.form.submit()" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-weight: 700; background: var(--surface); color: var(--text);">
+                <% [2026, 2025, 2024, 2023].forEach(y => { %>
+                    <option value="<%= y %>" <%= selectedYear == y ? 'selected' : '' %>><%= y %></option>
+                <% }) %>
+            </select>
+        </form>
+    </div>
+</div>
+
+<% if (typeof error !== 'undefined' && error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (typeof success !== 'undefined' && success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<!-- ═══ KPI SUMMARY CARDS ═══ -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="stat-card" style="border-left: 4px solid var(--primary);">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);"><i class="fa-solid fa-receipt"></i> Total Expenses Gross</div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: var(--text); margin-top: 0.35rem;">$<%= totalGross.toFixed(2) %></div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;"><%= expensesCount %> transactions in <%= selectedYear %></div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #3498db;">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);"><i class="fa-solid fa-calculator"></i> Pre-Tax Net Amount</div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: var(--text); margin-top: 0.35rem;">$<%= totalNet.toFixed(2) %></div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Subtotal before taxes</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #2ecc71; background: rgba(46, 204, 113, 0.05);">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #27ae60;"><i class="fa-solid fa-hand-holding-dollar"></i> CRA Line 108 ITCs Claimable</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #27ae60; margin-top: 0.35rem;">$<%= totalItcClaimable.toFixed(2) %></div>
+        <div style="font-size: 0.72rem; color: #27ae60; margin-top: 2px; font-weight: 600;">Recoverable GST/HST Tax Credits</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #e74c3c;">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);"><i class="fa-solid fa-utensils"></i> Non-Claimable Tax (50% Meal Rule)</div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: var(--text); margin-top: 0.35rem;">$<%= totalNonClaimableTax.toFixed(2) %></div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">CRA Restricted Meal Tax Portion</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;" class="tax-grid-layout">
+    
+    <!-- ═══ BREAKDOWN BY EXPENSE ORIGIN ═══ -->
+    <div class="panel">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 class="panel-title"><i class="fa-solid fa-layer-group"></i> Tax Breakdown by Origin (<%= selectedYear %>)</h2>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Expense Origin</th>
+                        <th style="text-align: right;">Gross ($)</th>
+                        <th style="text-align: right;">Tax Paid ($)</th>
+                        <th style="text-align: right;">Claimable ITC ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% Object.keys(byType).forEach(typeKey => { %>
+                        <% const data = byType[typeKey]; %>
+                        <tr>
+                            <td>
+                                <strong><%= typeKey %></strong>
+                            </td>
+                            <td style="text-align: right; font-weight: 600;">$<%= data.gross.toFixed(2) %></td>
+                            <td style="text-align: right;">$<%= data.tax.toFixed(2) %></td>
+                            <td style="text-align: right; font-weight: 700; color: #27ae60;">$<%= data.itc.toFixed(2) %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══ BREAKDOWN BY CANADIAN PROVINCE ═══ -->
+    <div class="panel">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 class="panel-title"><i class="fa-solid fa-map-location-dot"></i> Provincial Tax Split (<%= selectedYear %>)</h2>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Province / Region</th>
+                        <th style="text-align: right;">Gross ($)</th>
+                        <th style="text-align: right;">Tax Paid ($)</th>
+                        <th style="text-align: right;">Recoverable ITC ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (Object.keys(byProvince).length === 0) { %>
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No tax data recorded for <%= selectedYear %>.</td>
+                        </tr>
+                    <% } else { %>
+                        <% Object.keys(byProvince).forEach(prov => { %>
+                            <% const pData = byProvince[prov]; %>
+                            <tr>
+                                <td>
+                                    <span class="badge" style="background: var(--primary-light); color: var(--primary); font-weight: 700;"><%= prov %></span>
+                                </td>
+                                <td style="text-align: right; font-weight: 600;">$<%= pData.gross.toFixed(2) %></td>
+                                <td style="text-align: right;">$<%= pData.tax.toFixed(2) %></td>
+                                <td style="text-align: right; font-weight: 700; color: #27ae60;">$<%= pData.itc.toFixed(2) %></td>
+                            </tr>
+                        <% }) %>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══ CRA COMPLIANCE NOTES ═══ -->
+<div class="panel" style="border-left: 4px solid #3498db; margin-bottom: 2.5rem;">
+    <div class="panel-header">
+        <h2 class="panel-title"><i class="fa-solid fa-shield-halved"></i> CRA Audit &amp; ITC Filing Compliance Guidelines</h2>
+    </div>
+    <div class="panel-body" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+        <ul style="margin: 0; padding-left: 1.25rem;">
+            <li><strong>CRA Line 108 ITCs:</strong> Line 108 represents the total GST/HST paid or payable on eligible business purchases and expenses.</li>
+            <li><strong>50% Meal &amp; Entertainment Restriction:</strong> In accordance with CRA regulations, tax credits claimed for food, beverages, and entertainment are automatically capped at 50%.</li>
+            <li><strong>Vendor Registration Numbers:</strong> Receipts over $30 require the vendor's 9-digit GST/HST registration number to be eligible for Input Tax Credits upon CRA audit.</li>
+        </ul>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>
