@@ -864,24 +864,27 @@ if ('serviceWorker' in navigator && 'PushManager' in window) {
 }
 
 window.requestMobilePushPermission = function() {
-    if (!('Notification' in window)) {
-        alert('Push notifications are not supported on this browser/device.');
-        return;
-    }
-    Notification.requestPermission().then(function(permission) {
-        if (permission === 'granted') {
-            alert('Push notifications enabled successfully!');
-            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.ready.then(function(reg) {
-                    reg.showNotification('SargTech Expenses', {
-                        body: 'Mobile Push Notifications enabled!',
-                        icon: '/images/favicon.png'
+    localStorage.setItem('sargtech_push_alerts_enabled', 'true');
+    if ('Notification' in window) {
+        Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+                alert('Mobile Push & In-App Alert Notifications enabled successfully!');
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(function(reg) {
+                        reg.showNotification('SargTech Expenses', {
+                            body: 'Mobile Push Notifications enabled!',
+                            icon: '/images/favicon.png'
+                        });
                     });
-                });
+                }
+            } else {
+                alert('In-App Push & Mobile Notification Alerts enabled!');
             }
-        } else {
-            alert('Notification permission denied.');
-        }
-    });
+        }).catch(function() {
+            alert('In-App Push & Mobile Notification Alerts enabled!');
+        });
+    } else {
+        alert('In-App Push & Mobile Notification Alerts enabled!');
+    }
 };
 

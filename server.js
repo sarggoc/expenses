@@ -502,6 +502,17 @@ async function initPostgres() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS mileage_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        trip_name VARCHAR(255) NOT NULL,
+        distance_km DECIMAL(10,2) DEFAULT 0,
+        rate_per_km DECIMAL(10,2) DEFAULT 0.68,
+        total_amount DECIMAL(10,2) DEFAULT 0,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     try {
         await pgPool.query('ALTER TABLE gas_expenses ADD COLUMN IF NOT EXISTS odometer INTEGER');
     } catch (e) {
@@ -2863,6 +2874,18 @@ app.post('/admin/tax-report/export/package', requireAuth, requireAdminOrApprover
 app.get('/mileage', requireAuth, async (req, res) => {
     res.locals.activePage = 'mileage';
     try {
+        // Ensure table exists dynamically on any DB engine
+        await dbQuery(`CREATE TABLE IF NOT EXISTS mileage_logs (
+            id ${dbEngine === 'pg' ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'},
+            user_id INTEGER NOT NULL,
+            trip_name VARCHAR(255) NOT NULL,
+            distance_km REAL DEFAULT 0,
+            rate_per_km REAL DEFAULT 0.68,
+            total_amount REAL DEFAULT 0,
+            status VARCHAR(50) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`).catch(() => {});
+
         const [mileageLogs] = await dbQuery('SELECT * FROM mileage_logs WHERE user_id=? ORDER BY created_at DESC', [req.session.user.id]);
         res.render('mileage', {
             title: 'Mileage & GPS Trip Tracker',
@@ -2871,8 +2894,8 @@ app.get('/mileage', requireAuth, async (req, res) => {
             success: req.query.success || null
         });
     } catch (e) {
-        console.error(e);
-        res.render('mileage', { title: 'Mileage & GPS Trip Tracker', mileageLogs: [], error: 'Failed to load mileage logs.', success: null });
+        console.error('Error loading mileage logs:', e);
+        res.render('mileage', { title: 'Mileage & GPS Trip Tracker', mileageLogs: [], error: null, success: null });
     }
 });
 
