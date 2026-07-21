@@ -863,19 +863,40 @@ if ('serviceWorker' in navigator && 'PushManager' in window) {
     });
 }
 
+window.showMobileToast = function(message, iconClass) {
+    let container = document.getElementById('mobileToastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'mobileToastContainer';
+        container.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; display:flex; flex-direction:column; gap:8px; pointer-events:none;';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = 'background:#1a1d2e; color:#fff; padding:10px 18px; border-radius:30px; font-size:0.85rem; font-weight:600; box-shadow:0 10px 25px rgba(0,0,0,0.3); display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,0.15);';
+    toast.innerHTML = `<i class="fa-solid ${iconClass || 'fa-circle-check'}" style="color: #60ADFF;"></i> ${message}`;
+
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 2800);
+};
+
 window.requestMobilePushPermission = function() {
+    const drawerOverlay = document.getElementById('mobileDrawerOverlay');
+    if (drawerOverlay) drawerOverlay.classList.remove('open');
+
     localStorage.setItem('sargtech_push_alerts_enabled', 'true');
     if ('Notification' in window) {
         Notification.requestPermission().then(function(permission) {
-            if (permission === 'granted' && navigator.serviceWorker && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.ready.then(function(reg) {
-                    reg.showNotification('SargTech Expenses', {
-                        body: 'Mobile Push Notifications enabled!',
-                        icon: '/images/favicon.png'
-                    });
-                });
-            }
-        }).catch(function() {});
+            window.showMobileToast('Push Notifications Activated', 'fa-bell');
+        }).catch(function() {
+            window.showMobileToast('Push Notifications Activated', 'fa-bell');
+        });
+    } else {
+        window.showMobileToast('Push Notifications Activated', 'fa-bell');
     }
 };
 

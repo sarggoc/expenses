@@ -12,9 +12,18 @@
     };
 
     window.setupBiometricUnlock = async function() {
+        const drawerOverlay = document.getElementById('mobileDrawerOverlay');
+        if (drawerOverlay) drawerOverlay.classList.remove('open');
+
         localStorage.setItem('sargtech_biometric_enabled', 'true');
+        if (typeof window.showMobileToast === 'function') {
+            window.showMobileToast('Fingerprint & FaceID Biometrics Activated', 'fa-fingerprint');
+        }
+
         if (window.Android && typeof window.Android.setupBiometrics === 'function') {
             try { window.Android.setupBiometrics(); } catch (e) {}
+        } else if (window.Android && typeof window.Android.authenticateBiometric === 'function') {
+            try { window.Android.authenticateBiometric(); } catch (e) {}
         }
     };
 
@@ -55,7 +64,7 @@
             }
         }
 
-        // Silent Mobile App Biometric Quick Unlock
+        // Mobile App Biometric Quick Unlock
         window.location.href = '/dashboard';
     };
 })();
