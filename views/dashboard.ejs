@@ -175,6 +175,17 @@
                 <form action="/expenses/add" method="POST" enctype="multipart/form-data" autocomplete="off" id="addExpenseForm">
                     <input type="hidden" name="fees_json" id="fees_json_hidden">
 
+                    <% if (locals.activeView === 'add-cc') { %>
+                    <div style="background: var(--surface-2); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text); display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="fa-solid fa-credit-card" style="color: var(--primary);"></i> Assigned Company Card:
+                        </span>
+                        <span class="badge" style="background: #0078d7; color: #ffffff; font-size: 0.85rem; font-weight: 700; padding: 0.3rem 0.65rem; border-radius: 6px;">
+                            💳 **** <%= user.card_last_digits %>
+                        </span>
+                    </div>
+                    <% } %>
+
                     <div class="form-group">
                         <label for="store_name">Store / Vendor Name <span class="req">*</span></label>
                         <input type="text" id="store_name" name="store_name" required placeholder="e.g. Home Depot, Staples" autocomplete="off">

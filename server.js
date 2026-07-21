@@ -1084,6 +1084,11 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     res.locals.activePage = 'dashboard';
     const activeView = req.query.view || '';
     try {
+        const [freshUsers] = await dbQuery('SELECT * FROM users WHERE id=?', [req.session.user.id]);
+        if (freshUsers.length > 0) {
+            req.session.user.card_last_digits = freshUsers[0].card_last_digits;
+            res.locals.user = req.session.user;
+        }
         const [expenses] = await dbQuery('SELECT * FROM expenses WHERE user_id=? ORDER BY date DESC, created_at DESC', [req.session.user.id]);
         const settings = await getSettings();
         const spending = await getUserSpendingSummary(req.session.user.id);
@@ -1386,6 +1391,12 @@ app.post('/expenses/add', requireAuth, (req, res, next) => {
             const userCard = (req.session.user.card_last_digits || '').trim();
             if (!userCard || ['None', 'none', 'unassigned', '0000'].includes(userCard)) {
                 return res.redirect('/dashboard?error=' + encodeURIComponent('You do not have an assigned credit card to submit credit card expenses. Please contact an administrator.'));
+            }
+
+            // Check if card is active or suspended on whitelist
+            const [wlRows] = await dbQuery('SELECT status FROM card_whitelist WHERE card_digits=? LIMIT 1', [userCard]).catch(() => [[]]);
+            if (wlRows && wlRows.length > 0 && wlRows[0].status !== 'active') {
+                return res.redirect('/dashboard?error=' + encodeURIComponent(`Your assigned credit card (**** ${userCard}) is currently ${wlRows[0].status}. Charges are not allowed.`));
             }
             const spending = await getUserSpendingSummary(req.session.user.id);
             if (spending.limit > 0) {
@@ -3892,8 +3903,14 @@ app.post('/admin/whitelist/add', requireAuth, requireAdmin, async (req, res) => 
 
 app.post('/admin/whitelist/remove/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
-        await dbQuery('DELETE FROM card_whitelist WHERE id=?', [req.params.id]);
-        res.redirect('/admin/settings/cards?success='+encodeURIComponent('Card removed from whitelist.'));
+        const [cardRows] = await dbQuery('SELECT card_digits FROM card_whitelist WHERE id=? LIMIT 1', [req.params.id]);
+        if (cardRows.length > 0) {
+            const digits = cardRows[0].card_digits;
+            await dbQuery('DELETE FROM card_whitelist WHERE id=?', [req.params.id]);
+            // Unassign card digits from all users who had this card assigned
+            await dbQuery('UPDATE users SET card_last_digits=? WHERE card_last_digits=?', ['None', digits]);
+        }
+        res.redirect('/admin/settings/cards?success='+encodeURIComponent('Card removed from whitelist and unassigned from user accounts.'));
     } catch (e) { res.redirect('/admin/settings/cards?error='+encodeURIComponent('Failed to remove card.')); }
 });
 
