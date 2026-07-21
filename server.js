@@ -2341,6 +2341,201 @@ app.get('/admin/tax-report', requireAuth, requireAdminOrApprover, async (req, re
     }
 });
 
+// ── Export Canadian Tax Report to CSV / Excel
+app.get('/admin/tax-report/export/csv', requireAuth, requireAdminOrApprover, async (req, res) => {
+    const selectedYear = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
+    const startDate = `${selectedYear}-01-01`;
+    const endDate = `${selectedYear}-12-31`;
+
+    try {
+        const [expenses] = await dbQuery(`
+            SELECT e.*, (u.first_name || ' ' || u.last_name) AS employee_name
+            FROM expenses e
+            LEFT JOIN users u ON e.user_id = u.id
+            WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+            ORDER BY e.date ASC
+        `, [startDate, endDate]).catch(async () => {
+            return await dbQuery(`
+                SELECT e.*, CONCAT(u.first_name, ' ', u.last_name) AS employee_name
+                FROM expenses e
+                LEFT JOIN users u ON e.user_id = u.id
+                WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+                ORDER BY e.date ASC
+            `, [startDate, endDate]);
+        });
+
+        const [gasExpenses] = await dbQuery(`
+            SELECT ge.*, (u.first_name || ' ' || u.last_name) AS employee_name
+            FROM gas_expenses ge
+            LEFT JOIN users u ON ge.user_id = u.id
+            WHERE ge.date BETWEEN ? AND ?
+            ORDER BY ge.date ASC
+        `, [startDate, endDate]).catch(async () => {
+            return await dbQuery(`
+                SELECT ge.*, CONCAT(u.first_name, ' ', u.last_name) AS employee_name
+                FROM gas_expenses ge
+                LEFT JOIN users u ON ge.user_id = u.id
+                WHERE ge.date BETWEEN ? AND ?
+                ORDER BY ge.date ASC
+            `, [startDate, endDate]);
+        });
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="CRA_Canadian_Tax_Report_${selectedYear}.csv"`);
+
+        const escapeCsv = text => {
+            if (text === null || text === undefined) return '""';
+            const str = String(text).replace(/"/g, '""');
+            return `"${str}"`;
+        };
+
+        const rows = [];
+        rows.push(['SargTech Expenses - CRA Canadian Tax & ITC Report', selectedYear]);
+        rows.push([]);
+        rows.push(['Date', 'Employee', 'Merchant/Store', 'Payment Origin', 'Province', 'Net Amount ($)', 'Tax Rate', 'Tax Amount ($)', 'CRA Line 108 Claimable ITC ($)', 'Total Gross ($)']);
+
+        expenses.forEach(e => {
+            const date = (e.date || '').toString().split('T')[0];
+            const name = e.employee_name || 'Unknown';
+            const store = e.store_name || '';
+            const pType = e.payment_type || 'Reimbursement';
+            const prov = e.province || 'ON';
+            const net = (parseFloat(e.net_amount) || 0).toFixed(2);
+            const taxType = e.tax_type || 'GST';
+            const tax = (parseFloat(e.tax_amount) || 0).toFixed(2);
+            const category = (e.expense_type || '').toLowerCase();
+            const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment') || category.includes('dining');
+            const itc = (isMeal ? (parseFloat(e.tax_amount) * 0.5) : parseFloat(e.tax_amount) || 0).toFixed(2);
+            const total = (parseFloat(e.total_amount) || 0).toFixed(2);
+
+            rows.push([date, name, store, pType, prov, net, taxType, tax, itc, total]);
+        });
+
+        gasExpenses.forEach(ge => {
+            const date = (ge.date || '').toString().split('T')[0];
+            const name = ge.employee_name || 'Unknown';
+            const store = ge.store_name || 'Gas Station';
+            const pType = 'Gas Expense';
+            const prov = 'ON';
+            const net = (parseFloat(ge.net_amount) || 0).toFixed(2);
+            const taxType = 'GST';
+            const tax = (parseFloat(ge.tax_amount) || 0).toFixed(2);
+            const itc = tax;
+            const total = (parseFloat(ge.total_amount) || 0).toFixed(2);
+
+            rows.push([date, name, store, pType, prov, net, taxType, tax, itc, total]);
+        });
+
+        const csvString = rows.map(r => r.map(escapeCsv).join(',')).join('\r\n');
+        res.send(csvString);
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Failed to export CSV tax report.');
+    }
+});
+
+// ── Export Canadian Tax Report to PDF
+app.get('/admin/tax-report/export/pdf', requireAuth, requireAdminOrApprover, async (req, res) => {
+    const selectedYear = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
+    const startDate = `${selectedYear}-01-01`;
+    const endDate = `${selectedYear}-12-31`;
+
+    try {
+        const [expenses] = await dbQuery(`
+            SELECT e.*, (u.first_name || ' ' || u.last_name) AS employee_name
+            FROM expenses e
+            LEFT JOIN users u ON e.user_id = u.id
+            WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+            ORDER BY e.date ASC
+        `, [startDate, endDate]).catch(async () => {
+            return await dbQuery(`
+                SELECT e.*, CONCAT(u.first_name, ' ', u.last_name) AS employee_name
+                FROM expenses e
+                LEFT JOIN users u ON e.user_id = u.id
+                WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+                ORDER BY e.date ASC
+            `, [startDate, endDate]);
+        });
+
+        let totalGross = 0;
+        let totalNet = 0;
+        let totalTax = 0;
+        let totalItc = 0;
+
+        expenses.forEach(e => {
+            const gross = parseFloat(e.total_amount) || 0;
+            const net = parseFloat(e.net_amount) || 0;
+            const tax = parseFloat(e.tax_amount) || 0;
+            const category = (e.expense_type || '').toLowerCase();
+            const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment');
+            const itc = isMeal ? (tax * 0.5) : tax;
+
+            totalGross += gross;
+            totalNet += net;
+            totalTax += tax;
+            totalItc += itc;
+        });
+
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="CRA_Canadian_Tax_Report_${selectedYear}.pdf"`);
+        doc.pipe(res);
+
+        doc.rect(0, 0, 595, 60).fill('#e74c3c');
+        doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold').text(`Canadian Tax & CRA ITCs Report (${selectedYear})`, 40, 18);
+        doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString('en-CA')}`, 380, 25, { align: 'right' });
+        doc.moveDown(3.5);
+
+        doc.fillColor('#2c3e50').fontSize(11).font('Helvetica-Bold').text('CRA Line 108 Summary');
+        doc.moveDown(0.5);
+        doc.fontSize(9).font('Helvetica').fillColor('#333333');
+        doc.text(`Total Gross Expenses: $${totalGross.toFixed(2)}    Pre-Tax Subtotal: $${totalNet.toFixed(2)}`);
+        doc.text(`Total Tax Paid: $${totalTax.toFixed(2)}    CRA Line 108 Claimable ITCs: $${totalItc.toFixed(2)}`);
+        doc.moveDown(1.5);
+
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#e74c3c').text('Expense Tax Transactions');
+        doc.moveDown(0.5);
+
+        const cols = [40, 100, 200, 280, 360, 440, 510];
+        doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
+        doc.text('Date', cols[0], doc.y, { width: 55 });
+        doc.text('Employee', cols[1], doc.y, { width: 95 });
+        doc.text('Merchant', cols[2], doc.y, { width: 75 });
+        doc.text('Origin', cols[3], doc.y, { width: 75 });
+        doc.text('Net ($)', cols[4], doc.y, { width: 75 });
+        doc.text('Tax ($)', cols[5], doc.y, { width: 65 });
+        doc.text('ITC ($)', cols[6], doc.y, { width: 65 });
+        doc.moveDown(0.5);
+        doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke('#dddddd');
+        doc.moveDown(0.3);
+
+        expenses.forEach((e, idx) => {
+            const rowY = doc.y;
+            if (rowY > 750) doc.addPage();
+            if (idx % 2 === 0) doc.rect(40, doc.y - 2, 515, 14).fill('#FAFBFB');
+            doc.fillColor('#333333').fontSize(7.5).font('Helvetica');
+            const dateStr = (e.date || '').toString().split('T')[0];
+            const category = (e.expense_type || '').toLowerCase();
+            const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment');
+            const itcVal = isMeal ? (parseFloat(e.tax_amount) * 0.5) : (parseFloat(e.tax_amount) || 0);
+
+            doc.text(dateStr, cols[0], rowY, { width: 55, lineBreak: false });
+            doc.text((e.employee_name || 'User').substring(0, 16), cols[1], rowY, { width: 95, lineBreak: false });
+            doc.text((e.store_name || '').substring(0, 14), cols[2], rowY, { width: 75, lineBreak: false });
+            doc.text(e.payment_type || 'Reimb', cols[3], rowY, { width: 75, lineBreak: false });
+            doc.text(`$${parseFloat(e.net_amount || 0).toFixed(2)}`, cols[4], rowY, { width: 75, lineBreak: false });
+            doc.text(`$${parseFloat(e.tax_amount || 0).toFixed(2)}`, cols[5], rowY, { width: 65, lineBreak: false });
+            doc.font('Helvetica-Bold').text(`$${itcVal.toFixed(2)}`, cols[6], rowY, { width: 65, lineBreak: false });
+            doc.y = rowY + 14;
+        });
+
+        doc.end();
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Failed to generate PDF tax report.');
+    }
+});
+
 app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
     res.locals.activePage = 'status';
     try {
