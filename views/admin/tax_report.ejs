@@ -14,11 +14,14 @@
                 <% }) %>
             </select>
         </form>
-        <a href="/admin/tax-report/export/csv?year=<%= selectedYear %>" class="btn btn-outline btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 0.35rem;">
-            <i class="fa-solid fa-file-csv" style="color: #27ae60;"></i> Download CSV / Excel
+        <button type="button" class="btn btn-accent btn-sm" onclick="openTaxExportModal()" style="height: 38px; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <i class="fa-solid fa-sliders"></i> Export Setup / Package
+        </button>
+        <a href="/admin/tax-report/export/csv?year=<%= selectedYear %>" class="btn btn-outline btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 0.35rem;" title="Quick CSV Export">
+            <i class="fa-solid fa-file-csv" style="color: #27ae60;"></i> Quick CSV
         </a>
-        <a href="/admin/tax-report/export/pdf?year=<%= selectedYear %>" class="btn btn-accent btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 0.35rem;">
-            <i class="fa-solid fa-file-pdf"></i> Download PDF Report
+        <a href="/admin/tax-report/export/pdf?year=<%= selectedYear %>" class="btn btn-outline btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 0.35rem;" title="Quick PDF Export">
+            <i class="fa-solid fa-file-pdf" style="color: #e74c3c;"></i> Quick PDF
         </a>
     </div>
 </div>
@@ -145,5 +148,104 @@
         </ul>
     </div>
 </div>
+
+<!-- ═══ ADVANCED TAX EXPORT MODAL ═══ -->
+<div id="taxExportModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+    <div style="background: var(--surface); border-radius: 12px; max-width: 580px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); border: 1px solid var(--border); overflow: hidden; animation: fadeIn 0.2s ease-out;">
+        <div style="padding: 1.25rem 1.5rem; background: var(--surface-2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid fa-sliders" style="color: var(--primary);"></i> Tax Export Setup &amp; Multi-Page Package
+            </h3>
+            <button type="button" onclick="closeTaxExportModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form action="/admin/tax-report/export/package" method="POST" target="_blank" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+            <input type="hidden" name="year" value="<%= selectedYear %>">
+            
+            <div class="form-group">
+                <label style="font-weight: 700; font-size: 0.85rem; color: var(--text);">Export Format</label>
+                <div style="display: flex; gap: 1.5rem; margin-top: 0.35rem;">
+                    <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer;">
+                        <input type="radio" name="export_format" value="pdf" checked> <i class="fa-solid fa-file-pdf" style="color: #e74c3c;"></i> Multi-Page PDF Document
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer;">
+                        <input type="radio" name="export_format" value="csv"> <i class="fa-solid fa-file-csv" style="color: #27ae60;"></i> CSV / Excel Spreadsheet
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="group_by" style="font-weight: 700; font-size: 0.85rem; color: var(--text);">Page Grouping &amp; Multi-Page Separation</label>
+                <select id="group_by" name="group_by" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-weight: 600; background: var(--surface); color: var(--text);">
+                    <option value="combined">Combined (Total Company Operations)</option>
+                    <option value="division">Separate Multi-Pages by Division</option>
+                    <option value="employee">Separate Multi-Pages by Employee</option>
+                </select>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">Generates dedicated report sections &amp; Line 108 summaries per division or employee.</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="filter_division_id" style="font-weight: 700; font-size: 0.85rem; color: var(--text);">Filter Division</label>
+                    <select id="filter_division_id" name="division_id" style="width: 100%; padding: 0.45rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; background: var(--surface); color: var(--text);">
+                        <option value="all">All Divisions</option>
+                        <% if (typeof divisions !== 'undefined') { %>
+                            <% divisions.forEach(d => { %>
+                                <option value="<%= d.id %>"><%= d.name %></option>
+                            <% }) %>
+                        <% } %>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="filter_user_id" style="font-weight: 700; font-size: 0.85rem; color: var(--text);">Filter Employee</label>
+                    <select id="filter_user_id" name="user_id" style="width: 100%; padding: 0.45rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; background: var(--surface); color: var(--text);">
+                        <option value="all">All Employees</option>
+                        <% if (typeof usersList !== 'undefined') { %>
+                            <% usersList.forEach(u => { %>
+                                <option value="<%= u.id %>"><%= u.first_name %> <%= u.last_name %></option>
+                            <% }) %>
+                        <% } %>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group" style="background: var(--surface-2); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
+                <label style="font-weight: 700; font-size: 0.82rem; color: var(--text); display: block; margin-bottom: 0.4rem;">Include In Package:</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+                    <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                        <input type="checkbox" name="include_summary" value="1" checked> Line 108 Summary Box
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                        <input type="checkbox" name="include_provincial" value="1" checked> Provincial Tax Split
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                        <input type="checkbox" name="include_transactions" value="1" checked> Itemized Transaction Ledger
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                        <input type="checkbox" name="include_receipts" value="1" checked> Attached Receipt Photo Pages
+                    </label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeTaxExportModal()">Cancel</button>
+                <button type="submit" class="btn btn-accent btn-sm" onclick="setTimeout(closeTaxExportModal, 500)">
+                    <i class="fa-solid fa-download"></i> Generate Export Package
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openTaxExportModal() {
+    const modal = document.getElementById('taxExportModal');
+    if (modal) modal.style.display = 'flex';
+}
+function closeTaxExportModal() {
+    const modal = document.getElementById('taxExportModal');
+    if (modal) modal.style.display = 'none';
+}
+</script>
 
 <%- include('../partials/footer') %>

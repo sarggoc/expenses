@@ -2319,6 +2319,9 @@ app.get('/admin/tax-report', requireAuth, requireAdminOrApprover, async (req, re
             byProvince[prov].itc += tax;
         });
 
+        const [divisions] = await dbQuery('SELECT id, name FROM divisions ORDER BY name ASC').catch(() => [[]]);
+        const [usersList] = await dbQuery('SELECT id, first_name, last_name, division_id FROM users ORDER BY first_name ASC, last_name ASC').catch(() => [[]]);
+
         res.render('admin/tax_report', {
             title: 'Canadian Tax & CRA ITCs Report',
             selectedYear,
@@ -2331,6 +2334,8 @@ app.get('/admin/tax-report', requireAuth, requireAdminOrApprover, async (req, re
             totalNonClaimableTax,
             byType,
             byProvince,
+            divisions,
+            usersList,
             expensesCount: expenses.length + gasExpenses.length,
             error: req.query.error || null,
             success: req.query.success || null
@@ -2548,6 +2553,281 @@ app.get('/admin/tax-report/export/pdf', requireAuth, requireAdminOrApprover, asy
     } catch (e) {
         console.error(e);
         res.status(500).send('Failed to generate PDF tax report.');
+    }
+});
+
+// ── Export Custom Tax Package (Multi-page grouping by Division/Employee & Receipts)
+app.post('/admin/tax-report/export/package', requireAuth, requireAdminOrApprover, async (req, res) => {
+    const selectedYear = req.body.year ? parseInt(req.body.year) : new Date().getFullYear();
+    const exportFormat = req.body.export_format || 'pdf';
+    const groupBy = req.body.group_by || 'combined';
+    const divisionIdFilter = req.body.division_id || 'all';
+    const userIdFilter = req.body.user_id || 'all';
+
+    const includeSummary = req.body.include_summary === '1';
+    const includeProvincial = req.body.include_provincial === '1';
+    const includeTransactions = req.body.include_transactions === '1';
+    const includeReceipts = req.body.include_receipts === '1';
+
+    const startDate = `${selectedYear}-01-01`;
+    const endDate = `${selectedYear}-12-31`;
+
+    try {
+        let sql = `
+            SELECT e.*, 
+                   (u.first_name || ' ' || u.last_name) AS employee_name,
+                   d.name AS division_name,
+                   u.division_id
+            FROM expenses e
+            LEFT JOIN users u ON e.user_id = u.id
+            LEFT JOIN divisions d ON u.division_id = d.id
+            WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+        `;
+        const params = [startDate, endDate];
+
+        if (divisionIdFilter !== 'all') {
+            sql += ` AND u.division_id = ?`;
+            params.push(parseInt(divisionIdFilter));
+        }
+
+        if (userIdFilter !== 'all') {
+            sql += ` AND e.user_id = ?`;
+            params.push(parseInt(userIdFilter));
+        }
+
+        sql += ` ORDER BY e.date ASC`;
+
+        const [expenses] = await dbQuery(sql, params).catch(async () => {
+            let altSql = `
+                SELECT e.*, 
+                       CONCAT(u.first_name, ' ', u.last_name) AS employee_name,
+                       d.name AS division_name,
+                       u.division_id
+                FROM expenses e
+                LEFT JOIN users u ON e.user_id = u.id
+                LEFT JOIN divisions d ON u.division_id = d.id
+                WHERE e.date BETWEEN ? AND ? AND e.status NOT IN ('voided')
+            `;
+            const altParams = [startDate, endDate];
+
+            if (divisionIdFilter !== 'all') {
+                altSql += ` AND u.division_id = ?`;
+                altParams.push(parseInt(divisionIdFilter));
+            }
+
+            if (userIdFilter !== 'all') {
+                altSql += ` AND e.user_id = ?`;
+                altParams.push(parseInt(userIdFilter));
+            }
+
+            altSql += ` ORDER BY e.date ASC`;
+
+            return await dbQuery(altSql, altParams);
+        });
+
+        if (exportFormat === 'csv') {
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="CRA_Tax_Package_${selectedYear}_${groupBy}.csv"`);
+
+            const escapeCsv = text => {
+                if (text === null || text === undefined) return '""';
+                const str = String(text).replace(/"/g, '""');
+                return `"${str}"`;
+            };
+
+            const rows = [];
+            rows.push(['SargTech Expenses - CRA Canadian Tax Package', selectedYear, `Grouped By: ${groupBy}`]);
+            rows.push([]);
+            rows.push(['Division', 'Employee', 'Date', 'Merchant/Store', 'Payment Origin', 'Province', 'Net Amount ($)', 'Tax Rate', 'Tax Amount ($)', 'CRA Line 108 Claimable ITC ($)', 'Total Gross ($)', 'Receipt Attached']);
+
+            expenses.forEach(e => {
+                const divName = e.division_name || 'General Operations';
+                const empName = e.employee_name || 'Unknown';
+                const date = (e.date || '').toString().split('T')[0];
+                const store = e.store_name || '';
+                const pType = e.payment_type || 'Reimbursement';
+                const prov = e.province || 'ON';
+                const net = (parseFloat(e.net_amount) || 0).toFixed(2);
+                const taxType = e.tax_type || 'GST';
+                const tax = (parseFloat(e.tax_amount) || 0).toFixed(2);
+                const category = (e.expense_type || '').toLowerCase();
+                const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment');
+                const itc = (isMeal ? (parseFloat(e.tax_amount) * 0.5) : parseFloat(e.tax_amount) || 0).toFixed(2);
+                const total = (parseFloat(e.total_amount) || 0).toFixed(2);
+                const hasReceipt = e.receipt_photo_path ? 'Yes' : 'No';
+
+                rows.push([divName, empName, date, store, pType, prov, net, taxType, tax, itc, total, hasReceipt]);
+            });
+
+            const csvString = rows.map(r => r.map(escapeCsv).join(',')).join('\r\n');
+            return res.send(csvString);
+        }
+
+        // PDF Generation Package
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="CRA_Tax_Package_${selectedYear}_${groupBy}.pdf"`);
+        doc.pipe(res);
+
+        // Grouping
+        const groups = {};
+        if (groupBy === 'division') {
+            expenses.forEach(e => {
+                const key = e.division_name || 'General Operations';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(e);
+            });
+        } else if (groupBy === 'employee') {
+            expenses.forEach(e => {
+                const key = e.employee_name || 'Unassigned User';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(e);
+            });
+        } else {
+            groups['Total Company Operations'] = expenses;
+        }
+
+        const groupKeys = Object.keys(groups);
+
+        groupKeys.forEach((gKey, gIdx) => {
+            if (gIdx > 0) doc.addPage();
+            const groupExpenses = groups[gKey];
+
+            let gGross = 0, gNet = 0, gTax = 0, gItc = 0;
+            const provMap = {};
+
+            groupExpenses.forEach(e => {
+                const gross = parseFloat(e.total_amount) || 0;
+                const net = parseFloat(e.net_amount) || 0;
+                const tax = parseFloat(e.tax_amount) || 0;
+                const category = (e.expense_type || '').toLowerCase();
+                const prov = e.province || 'ON';
+                const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment');
+                const itc = isMeal ? (tax * 0.5) : tax;
+
+                gGross += gross;
+                gNet += net;
+                gTax += tax;
+                gItc += itc;
+
+                if (!provMap[prov]) provMap[prov] = { gross: 0, tax: 0, itc: 0 };
+                provMap[prov].gross += gross;
+                provMap[prov].tax += tax;
+                provMap[prov].itc += itc;
+            });
+
+            // Banner Header
+            doc.rect(0, 0, 595, 60).fill('#e74c3c');
+            doc.fillColor('#FFFFFF').fontSize(15).font('Helvetica-Bold').text(`CRA Tax Package (${selectedYear}) - ${gKey}`, 40, 20, { lineBreak: false });
+            doc.fontSize(9).font('Helvetica').text(`Section ${gIdx + 1} of ${groupKeys.length}`, 420, 25, { align: 'right', lineBreak: false });
+
+            doc.y = 80;
+
+            if (includeSummary) {
+                doc.roundedRect(40, doc.y, 515, 65, 4).fillAndStroke('#F8F9FA', '#E0E0E0');
+                const sumY = doc.y + 10;
+                doc.fillColor('#2c3e50').fontSize(11).font('Helvetica-Bold').text(`CRA Line 108 Summary — ${gKey}`, 52, sumY, { lineBreak: false });
+                doc.fontSize(9).font('Helvetica').fillColor('#555555');
+                doc.text(`Total Gross Expenses: $${gGross.toFixed(2)}`, 52, sumY + 18, { lineBreak: false });
+                doc.text(`Pre-Tax Subtotal: $${gNet.toFixed(2)}`, 230, sumY + 18, { lineBreak: false });
+                doc.text(`Total Tax Paid: $${gTax.toFixed(2)}`, 52, sumY + 34, { lineBreak: false });
+                doc.font('Helvetica-Bold').fillColor('#27ae60').text(`CRA Line 108 Claimable ITCs: $${gItc.toFixed(2)}`, 230, sumY + 34, { lineBreak: false });
+                doc.y = sumY + 75;
+            }
+
+            if (includeProvincial && Object.keys(provMap).length > 0) {
+                doc.fillColor('#2c3e50').fontSize(10).font('Helvetica-Bold').text('Provincial Tax Split Summary', 40, doc.y, { lineBreak: false });
+                doc.y += 15;
+                const pCols = [40, 150, 280, 420];
+                const pY = doc.y;
+                doc.rect(40, pY - 2, 515, 16).fill('#EAECEE');
+                doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
+                doc.text('Province', pCols[0], pY + 2, { width: 100, lineBreak: false });
+                doc.text('Gross ($)', pCols[1], pY + 2, { width: 100, lineBreak: false });
+                doc.text('Tax Paid ($)', pCols[2], pY + 2, { width: 100, lineBreak: false });
+                doc.text('Recoverable ITC ($)', pCols[3], pY + 2, { width: 100, lineBreak: false });
+                doc.y = pY + 18;
+
+                Object.keys(provMap).forEach((pCode, pIdx) => {
+                    const pRowY = doc.y;
+                    if (pIdx % 2 === 0) doc.rect(40, pRowY - 1, 515, 14).fill('#FAFBFB');
+                    const pD = provMap[pCode];
+                    doc.fontSize(8).font('Helvetica').fillColor('#333333');
+                    doc.text(pCode, pCols[0], pRowY + 1, { width: 100, lineBreak: false });
+                    doc.text(`$${pD.gross.toFixed(2)}`, pCols[1], pRowY + 1, { width: 100, lineBreak: false });
+                    doc.text(`$${pD.tax.toFixed(2)}`, pCols[2], pRowY + 1, { width: 100, lineBreak: false });
+                    doc.font('Helvetica-Bold').fillColor('#27ae60').text(`$${pD.itc.toFixed(2)}`, pCols[3], pRowY + 1, { width: 100, lineBreak: false });
+                    doc.y = pRowY + 15;
+                });
+                doc.y += 15;
+            }
+
+            if (includeTransactions) {
+                doc.fillColor('#e74c3c').fontSize(10).font('Helvetica-Bold').text('Expense Tax Transactions', 40, doc.y, { lineBreak: false });
+                doc.y += 15;
+
+                const cols = [40, 105, 210, 295, 370, 440, 500];
+                const headerY = doc.y;
+
+                doc.rect(40, headerY - 2, 515, 18).fill('#F2F4F4');
+                doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#2c3e50');
+                doc.text('Date',      cols[0], headerY + 3, { width: 60, lineBreak: false });
+                doc.text('Employee',  cols[1], headerY + 3, { width: 100, lineBreak: false });
+                doc.text('Merchant',  cols[2], headerY + 3, { width: 80, lineBreak: false });
+                doc.text('Origin',    cols[3], headerY + 3, { width: 70, lineBreak: false });
+                doc.text('Net ($)',   cols[4], headerY + 3, { width: 65, lineBreak: false });
+                doc.text('Tax ($)',   cols[5], headerY + 3, { width: 55, lineBreak: false });
+                doc.text('ITC ($)',   cols[6], headerY + 3, { width: 55, lineBreak: false });
+
+                doc.y = headerY + 22;
+
+                groupExpenses.forEach((e, idx) => {
+                    if (doc.y > 750) {
+                        doc.addPage();
+                        doc.y = 40;
+                    }
+                    const rowY = doc.y;
+                    if (idx % 2 === 0) doc.rect(40, rowY - 1, 515, 15).fill('#FAFBFB');
+
+                    doc.fillColor('#333333').fontSize(8).font('Helvetica');
+                    const dateStr = (e.date || '').toString().split('T')[0];
+                    const category = (e.expense_type || '').toLowerCase();
+                    const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment');
+                    const itcVal = isMeal ? (parseFloat(e.tax_amount) * 0.5) : (parseFloat(e.tax_amount) || 0);
+
+                    doc.text(dateStr, cols[0], rowY + 2, { width: 60, lineBreak: false });
+                    doc.text((e.employee_name || 'User').substring(0, 18), cols[1], rowY + 2, { width: 100, lineBreak: false });
+                    doc.text((e.store_name || '').substring(0, 15), cols[2], rowY + 2, { width: 80, lineBreak: false });
+                    doc.text(e.payment_type || 'Reimb', cols[3], rowY + 2, { width: 70, lineBreak: false });
+                    doc.text(`$${parseFloat(e.net_amount || 0).toFixed(2)}`, cols[4], rowY + 2, { width: 65, lineBreak: false });
+                    doc.text(`$${parseFloat(e.tax_amount || 0).toFixed(2)}`, cols[5], rowY + 2, { width: 55, lineBreak: false });
+                    doc.font('Helvetica-Bold').fillColor('#27ae60').text(`$${itcVal.toFixed(2)}`, cols[6], rowY + 2, { width: 55, lineBreak: false });
+                    doc.y = rowY + 16;
+                });
+            }
+
+            if (includeReceipts) {
+                groupExpenses.forEach(e => {
+                    if (e.receipt_photo_path && e.receipt_photo_path.startsWith('/uploads/')) {
+                        const localPath = path.join(__dirname, 'public', e.receipt_photo_path);
+                        if (fs.existsSync(localPath)) {
+                            try {
+                                doc.addPage();
+                                doc.rect(0, 0, 595, 40).fill('#2c3e50');
+                                doc.fillColor('#FFFFFF').fontSize(12).font('Helvetica-Bold').text(`Receipt Attachment — ${e.store_name} ($${parseFloat(e.total_amount).toFixed(2)})`, 40, 12, { lineBreak: false });
+                                doc.fontSize(9).font('Helvetica').text(`Date: ${(e.date||'').toString().split('T')[0]}  |  User: ${e.employee_name||'User'}`, 40, 48, { lineBreak: false });
+                                doc.image(localPath, 40, 75, { fit: [515, 680], align: 'center', valign: 'center' });
+                            } catch (err) {}
+                        }
+                    }
+                });
+            }
+        });
+
+        doc.end();
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Failed to generate export package.');
     }
 });
 
