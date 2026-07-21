@@ -55,25 +55,14 @@
                     <% } %>
                 </td>
                 <td>
-                    <% if (exp.submission_method) { %>
-                        <% if (exp.submission_method === 'Credit Card') { %>
-                        <% if (exp.submission_method === 'Company Credit Card' || exp.payment_type === 'Company Card') { %>
-                            <span class="badge" style="background: rgba(0, 120, 215, 0.1); color: #0078d7; border: 1px solid rgba(0, 120, 215, 0.2); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;">
-                                <i class="fa-solid fa-credit-card"></i> Credit Card <%= (exp.user_card_digits || exp.card_last_digits || (typeof user !== 'undefined' && user.card_last_digits)) ? `(**** ${exp.user_card_digits || exp.card_last_digits || user.card_last_digits})` : '' %>
-                            </span>
-                        <% } else if (exp.submission_method === 'Gas/Fuel Card') { %>
-                            <span class="badge" style="background: rgba(230, 126, 34, 0.1); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-gas-pump"></i> Gas Card</span>
-                        <% } else { %>
-                            <span class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-hand-holding-dollar"></i> Reimbursement</span>
-                        <% } %>
+                    <% if (exp.submission_method === 'Company Credit Card' || exp.payment_type === 'Company Card' || exp.submission_method === 'Credit Card') { %>
+                        <span class="badge" style="background: rgba(0, 120, 215, 0.1); color: #0078d7; border: 1px solid rgba(0, 120, 215, 0.2); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;">
+                            <i class="fa-solid fa-credit-card"></i> Credit Card <%= (exp.user_card_digits || exp.card_last_digits || (typeof user !== 'undefined' && user && user.card_last_digits)) ? `(**** ${exp.user_card_digits || exp.card_last_digits || user.card_last_digits})` : '' %>
+                        </span>
+                    <% } else if (exp.submission_method === 'Gas/Fuel Card') { %>
+                        <span class="badge" style="background: rgba(230, 126, 34, 0.1); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-gas-pump"></i> Gas Card</span>
                     <% } else { %>
-                        <% if (exp.payment_type === 'Company Card') { %>
-                            <span class="badge" style="background: rgba(0, 120, 215, 0.1); color: #0078d7; border: 1px solid rgba(0, 120, 215, 0.2); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;">
-                                <i class="fa-solid fa-credit-card"></i> Credit Card <%= (exp.user_card_digits || exp.card_last_digits || (typeof user !== 'undefined' && user.card_last_digits)) ? `(**** ${exp.user_card_digits || exp.card_last_digits || user.card_last_digits})` : '' %>
-                            </span>
-                        <% } else { %>
-                            <span class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-hand-holding-dollar"></i> Reimbursement</span>
-                        <% } %>
+                        <span class="badge" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.25); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600;"><i class="fa-solid fa-hand-holding-dollar"></i> Reimbursement</span>
                     <% } %>
                 </td>
                 <td>
