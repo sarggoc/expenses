@@ -1083,9 +1083,6 @@ app.post('/notifications/read-all', requireAuth, async (req, res) => {
 app.get('/dashboard', requireAuth, async (req, res) => {
     res.locals.activePage = 'dashboard';
     const activeView = req.query.view || '';
-    if (activeView === 'add-cc' && (!req.session.user.card_last_digits || req.session.user.card_last_digits === 'None')) {
-        return res.redirect('/dashboard?error=' + encodeURIComponent('You do not have an assigned credit card to add credit card expenses.'));
-    }
     try {
         const [expenses] = await dbQuery('SELECT * FROM expenses WHERE user_id=? ORDER BY date DESC, created_at DESC', [req.session.user.id]);
         const settings = await getSettings();
@@ -1386,8 +1383,9 @@ app.post('/expenses/add', requireAuth, (req, res, next) => {
 
         // Spending limit check (only credit card counts against limit)
         if (payment_type === 'Company Card') {
-            if (!req.session.user.card_last_digits || req.session.user.card_last_digits === 'None') {
-                return res.redirect('/dashboard?error='+encodeURIComponent('You do not have an assigned credit card to submit credit card expenses.'));
+            const userCard = (req.session.user.card_last_digits || '').trim();
+            if (!userCard || ['None', 'none', 'unassigned', '0000'].includes(userCard)) {
+                return res.redirect('/dashboard?error=' + encodeURIComponent('You do not have an assigned credit card to submit credit card expenses. Please contact an administrator.'));
             }
             const spending = await getUserSpendingSummary(req.session.user.id);
             if (spending.limit > 0) {
