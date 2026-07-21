@@ -106,10 +106,17 @@
             <button type="submit" class="btn btn-primary btn-full" style="margin-top:.5rem;">
                 <i class="fa-solid fa-lock"></i> Sign In Securely
             </button>
-            <button type="button" class="btn btn-outline btn-full" style="margin-top: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;" onclick="loginWithBiometrics()">
-                <i class="fa-solid fa-fingerprint" style="color: #8e44ad;"></i> FaceID / Fingerprint Unlock
-            </button>
         </form>
+
+        <div style="margin-top: 1rem; text-align: center;">
+            <div style="position: relative; margin: 1rem 0; text-align: center;">
+                <hr style="border: 0; border-top: 1px solid var(--border-light, #eee);">
+                <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--surface, #fff); padding: 0 10px; font-size: 0.75rem; color: var(--text-muted, #888);">OR BIOMETRICS</span>
+            </div>
+            <button type="button" class="btn btn-outline btn-full" id="btnBiometricLogin" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600; padding: 0.75rem;" onclick="event.preventDefault(); if (typeof window.openFingerprintModal === 'function') window.openFingerprintModal(); else if (typeof window.loginWithBiometrics === 'function') window.loginWithBiometrics();">
+                <i class="fa-solid fa-fingerprint" style="color: #60ADFF; font-size: 1.25rem;"></i> Touch Fingerprint Sensor to Unlock
+            </button>
+        </div>
         <% } %>
 
     </div>
