@@ -254,6 +254,8 @@ async function initSQLite() {
     try { await runSQLite(`ALTER TABLE card_whitelist ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN wbs_code TEXT DEFAULT NULL`); } catch (e) {}
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN expense_type TEXT DEFAULT NULL`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE expenses ADD COLUMN payout_status TEXT DEFAULT 'unpaid'`); } catch (e) {}
+    try { await runSQLite(`ALTER TABLE groups ADD COLUMN delegate_approver_id INTEGER DEFAULT NULL`); } catch (e) {}
     try { await runSQLite(`CREATE TABLE IF NOT EXISTS reimbursement_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
@@ -872,8 +874,8 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage, limits: { fileSize: 10*1024*1024 },
     fileFilter: (req, file, cb) => {
-        if (/jpeg|jpg|png|gif|webp|heic|heif/i.test(file.mimetype)) cb(null, true);
-        else cb(new Error('Only image files allowed.'));
+        if (/jpeg|jpg|png|gif|webp|heic|heif|pdf/i.test(file.mimetype) || /\.pdf$/i.test(file.originalname)) cb(null, true);
+        else cb(new Error('Only image (JPG, PNG, WebP) and PDF files allowed.'));
     }
 });
 
@@ -1665,6 +1667,36 @@ app.post('/admin/expenses/batch-status', requireAuth, async (req, res) => {
     } catch (e) {
         console.error(e);
         res.redirect(referrer + (referrer.includes('?') ? '&' : '?') + 'error=' + encodeURIComponent('Batch action failed.'));
+    }
+});
+
+// ── Update reimbursement payout status (unpaid, processing, paid)
+app.post('/admin/expense/:id/payout-status', requireAuth, async (req, res) => {
+    const { payout_status } = req.body;
+    const referrer = req.get('Referrer') || '/admin/reports';
+    if (!['unpaid', 'processing', 'paid'].includes(payout_status)) return res.redirect(referrer);
+
+    try {
+        const currentUser = req.session.user;
+        if (currentUser.role !== 'admin' && currentUser.role !== 'accounting') {
+            return res.status(403).send('Only Admin or Accounting can update reimbursement payout status.');
+        }
+
+        await dbQuery('UPDATE expenses SET payout_status=? WHERE id=?', [payout_status, req.params.id]);
+        await dbQuery('INSERT INTO expense_logs (expense_id, user_id, action, reason) VALUES (?, ?, ?, ?)',
+            [req.params.id, currentUser.id, `payout_${payout_status}`, `Payout status set to ${payout_status}`]);
+
+        const [expRows] = await dbQuery('SELECT user_id, store_name, total_amount FROM expenses WHERE id=? LIMIT 1', [req.params.id]);
+        if (expRows.length > 0) {
+            const exp = expRows[0];
+            const msg = `Reimbursement payout for **${exp.store_name}** ($${parseFloat(exp.total_amount).toFixed(2)}) status updated to **${payout_status.toUpperCase()}**.`;
+            await dbQuery('INSERT INTO notifications (user_id, message, is_read, expense_id) VALUES (?, ?, 0, ?)', [exp.user_id, msg, req.params.id]);
+        }
+
+        res.redirect(referrer);
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Failed to update payout status.');
     }
 });
 
@@ -2614,15 +2646,21 @@ app.get('/admin/groups', requireAuth, requireAdmin, async (req, res) => {
     res.locals.activePage = 'groups-list';
     try {
         const [groupsRows] = await dbQuery(`
-            SELECT g.*, u.first_name || ' ' || u.last_name AS approver_name
+            SELECT g.*, 
+                   u.first_name || ' ' || u.last_name AS approver_name,
+                   ud.first_name || ' ' || ud.last_name AS delegate_name
             FROM groups g
             LEFT JOIN users u ON g.approver_id = u.id
+            LEFT JOIN users ud ON g.delegate_approver_id = ud.id
             ORDER BY g.name ASC
         `).catch(async () => {
             const [r] = await dbQuery(`
-                SELECT g.*, CONCAT(u.first_name, ' ', u.last_name) AS approver_name
+                SELECT g.*, 
+                       CONCAT(u.first_name, ' ', u.last_name) AS approver_name,
+                       CONCAT(ud.first_name, ' ', ud.last_name) AS delegate_name
                 FROM groups g
                 LEFT JOIN users u ON g.approver_id = u.id
+                LEFT JOIN users ud ON g.delegate_approver_id = ud.id
                 ORDER BY g.name ASC
             `);
             return [r];
@@ -2670,7 +2708,7 @@ app.get('/admin/groups/create', requireAuth, requireAdmin, async (req, res) => {
         });
     } catch (e) {
         console.error(e);
-        res.status(500).send('Error loading groups.');
+        res.status(500).send('Error loading group creation page.');
     }
 });
 

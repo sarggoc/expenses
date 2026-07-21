@@ -112,6 +112,18 @@
                 <td>
                     <% if (exp.status === 'approved') { %>
                         <span class="badge" style="background:var(--accent); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-check"></i> Approved</span>
+                        <% if (exp.payment_type !== 'Company Card') { %>
+                            <div style="margin-top: 0.25rem;">
+                                <% const pStat = exp.payout_status || 'unpaid'; %>
+                                <% if (pStat === 'paid') { %>
+                                    <span class="badge" style="background:#2ecc71; color:#fff; font-size:0.65rem; padding:0.15rem 0.35rem;"><i class="fa-solid fa-sack-dollar"></i> Payout: Paid</span>
+                                <% } else if (pStat === 'processing') { %>
+                                    <span class="badge" style="background:#f39c12; color:#fff; font-size:0.65rem; padding:0.15rem 0.35rem;"><i class="fa-solid fa-spinner"></i> Payout: Processing</span>
+                                <% } else { %>
+                                    <span class="badge" style="background:var(--text-muted); color:#fff; font-size:0.65rem; padding:0.15rem 0.35rem;"><i class="fa-solid fa-hourglass-start"></i> Payout: Unpaid</span>
+                                <% } %>
+                            </div>
+                        <% } %>
                         <% if (exp.approved_at) { %>
                             <% 
                                 let formattedApprovedAt = '';
@@ -159,13 +171,23 @@
                             <i class="fa-solid fa-xmark"></i> Reject
                         </button>
                     </div>
-                    <% } else { %>
                         <form action="/admin/expense/<%= exp.id %>/status" method="POST" style="display:inline;">
                             <input type="hidden" name="status" value="pending">
                             <button type="submit" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.35rem; font-size: 0.68rem; height: 24px;">
                                 Reset to Pending
                             </button>
                         </form>
+                        <% if (exp.status === 'approved' && exp.payment_type !== 'Company Card' && typeof user !== 'undefined' && user && (user.role === 'admin' || user.role === 'accounting')) { %>
+                            <div style="margin-top: 0.35rem;">
+                                <form action="/admin/expense/<%= exp.id %>/payout-status" method="POST" style="display:inline-flex; align-items:center;">
+                                    <select name="payout_status" onchange="this.form.submit()" style="font-size: 0.65rem; padding: 0.15rem 0.3rem; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: 600; cursor: pointer;" title="Update payout status">
+                                        <option value="unpaid" <%= (exp.payout_status || 'unpaid') === 'unpaid' ? 'selected' : '' %>>Payout: Unpaid</option>
+                                        <option value="processing" <%= exp.payout_status === 'processing' ? 'selected' : '' %>>Payout: Processing</option>
+                                        <option value="paid" <%= exp.payout_status === 'paid' ? 'selected' : '' %>>Payout: Paid</option>
+                                    </select>
+                                </form>
+                            </div>
+                        <% } %>
                     <% } %>
                 </td>
             </tr>

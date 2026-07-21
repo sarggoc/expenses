@@ -42,6 +42,15 @@
                         <% }) %>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="delegate_approver_id">Backup / Delegate Approver <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                    <select id="delegate_approver_id" name="delegate_approver_id">
+                        <option value="">— None Assigned —</option>
+                        <% approvers.forEach(a => { %>
+                            <option value="<%= a.id %>"><%= a.first_name %> <%= a.last_name %> (@<%= a.username %>)</option>
+                        <% }) %>
+                    </select>
+                </div>
                 <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem;">
                     <a href="/admin/groups" class="btn btn-outline" style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center;">Cancel</a>
                     <button type="submit" class="btn btn-accent" style="flex: 2;">

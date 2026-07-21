@@ -56,19 +56,44 @@
                                 <!-- Approver management -->
                                 <div style="background: var(--surface-2); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
                                     <h4 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
-                                        <i class="fa-solid fa-user-tie"></i> Group Approver
+                                        <i class="fa-solid fa-user-tie"></i> Primary Group Approver
                                     </h4>
                                     <div style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 0.6rem;">
                                         <%= g.approver_name || '— Unassigned —' %>
                                     </div>
-                                    <form action="/admin/groups/<%= g.id %>/approver" method="POST" style="display: flex; gap: 0.35rem;">
-                                        <select name="approver_id" style="font-size: 0.78rem; padding: 0.25rem; height: 30px; flex: 1;">
-                                            <option value="">— Unassign —</option>
-                                            <% approvers.forEach(a => { %>
-                                                <option value="<%= a.id %>" <%= g.approver_id == a.id ? 'selected' : '' %>><%= a.first_name %> <%= a.last_name %></option>
-                                            <% }) %>
-                                        </select>
-                                        <button type="submit" class="btn btn-outline btn-sm" style="height: 30px; padding: 0 0.5rem; font-size: 0.75rem;">Set</button>
+                                    <form action="/admin/groups/<%= g.id %>/update" method="POST" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                        <input type="hidden" name="delegate_approver_id" value="<%= g.delegate_approver_id || '' %>">
+                                        <div style="display: flex; gap: 0.35rem;">
+                                            <select name="approver_id" style="font-size: 0.78rem; padding: 0.25rem; height: 30px; flex: 1;">
+                                                <option value="">— Unassign —</option>
+                                                <% approvers.forEach(a => { %>
+                                                    <option value="<%= a.id %>" <%= g.approver_id == a.id ? 'selected' : '' %>><%= a.first_name %> <%= a.last_name %></option>
+                                                <% }) %>
+                                            </select>
+                                            <button type="submit" class="btn btn-outline btn-sm" style="height: 30px; padding: 0 0.5rem; font-size: 0.75rem;">Set</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <!-- Delegate Approver management -->
+                                <div style="background: var(--surface-2); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                                    <h4 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                        <i class="fa-solid fa-user-shield"></i> Backup / Delegate Approver
+                                    </h4>
+                                    <div style="font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 0.6rem;">
+                                        <%= g.delegate_name || '— Unassigned —' %>
+                                    </div>
+                                    <form action="/admin/groups/<%= g.id %>/update" method="POST" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                        <input type="hidden" name="approver_id" value="<%= g.approver_id || '' %>">
+                                        <div style="display: flex; gap: 0.35rem;">
+                                            <select name="delegate_approver_id" style="font-size: 0.78rem; padding: 0.25rem; height: 30px; flex: 1;">
+                                                <option value="">— Unassign Delegate —</option>
+                                                <% approvers.forEach(a => { %>
+                                                    <option value="<%= a.id %>" <%= g.delegate_approver_id == a.id ? 'selected' : '' %>><%= a.first_name %> <%= a.last_name %></option>
+                                                <% }) %>
+                                            </select>
+                                            <button type="submit" class="btn btn-outline btn-sm" style="height: 30px; padding: 0 0.5rem; font-size: 0.75rem;">Set</button>
+                                        </div>
                                     </form>
                                 </div>
                                 

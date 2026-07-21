@@ -300,15 +300,18 @@
                     </div>
 
                     <div class="form-group" style="margin-top: 1rem;">
-                        <label for="receipt_photo">Receipt Photo <span style="color:var(--text-light);font-weight:400;">(optional – can be added later via Edit)</span></label>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*" capture="environment" style="flex: 1;">
-                            <button type="button" class="btn btn-outline" id="btn-scan-receipt" style="padding: 0.55rem 0.8rem; margin: 0; font-size: 0.8rem;" title="Auto-scan receipt details using AI">
-                                AI Scan
-                            </button>
+                        <label for="receipt_photo">Receipt Photo or PDF Invoice <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                        <div id="dropzoneContainer" style="border: 2px dashed var(--border); border-radius: 8px; padding: 1.25rem 1rem; text-align: center; background: var(--surface); cursor: pointer; transition: border-color 0.2s, background 0.2s;" onclick="document.getElementById('receipt_photo').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="handleDropzoneFile(event)">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--primary); margin-bottom: 0.35rem; display: block;"></i>
+                            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text);">Drag &amp; drop receipt photo or PDF here</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">or click to browse files (Images, PDF up to 10MB)</div>
+                            <div id="selectedFileName" style="font-size: 0.78rem; font-weight: 700; color: var(--primary); margin-top: 0.5rem; display: none;"></div>
                         </div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-                            <i class="fa-solid fa-camera"></i> On mobile, tap to open camera directly. Max 10MB.
+                        <input type="file" id="receipt_photo" name="receipt_photo" accept="image/*,application/pdf" capture="environment" style="display: none;" onchange="updateDropzoneLabel(this)">
+                        <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-outline" id="btn-scan-receipt" style="padding: 0.45rem 0.8rem; margin: 0; font-size: 0.8rem; width: 100%;" title="Auto-scan receipt details using AI">
+                                <i class="fa-solid fa-receipt"></i> Auto-Scan Receipt Details
+                            </button>
                         </div>
                         <div id="scan-status-message" style="display: none; font-size: 0.75rem; margin-top: 0.35rem; font-weight: 600;"></div>
                     </div>
@@ -388,6 +391,18 @@
                 <td>
                     <% if (exp.status === 'approved') { %>
                         <span class="badge" style="background:var(--accent); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-check"></i> Approved</span>
+                        <% if (exp.payment_type !== 'Company Card') { %>
+                            <div style="margin-top:2px;">
+                                <% const pStat = exp.payout_status || 'unpaid'; %>
+                                <% if (pStat === 'paid') { %>
+                                    <span class="badge" style="background:#2ecc71; color:#fff; font-size:0.62rem; padding:0.1rem 0.35rem;"><i class="fa-solid fa-sack-dollar"></i> Paid</span>
+                                <% } else if (pStat === 'processing') { %>
+                                    <span class="badge" style="background:#f39c12; color:#fff; font-size:0.62rem; padding:0.1rem 0.35rem;"><i class="fa-solid fa-spinner"></i> Processing</span>
+                                <% } else { %>
+                                    <span class="badge" style="background:var(--text-muted); color:#fff; font-size:0.62rem; padding:0.1rem 0.35rem;"><i class="fa-solid fa-hourglass-start"></i> Unpaid</span>
+                                <% } %>
+                            </div>
+                        <% } %>
                         <% if (exp.approved_at) { %><div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;"><%= (exp.approved_at||'').toString().split('T')[0] %></div><% } %>
                     <% } else if (exp.status === 'rejected') { %>
                         <span class="badge" style="background:var(--danger); color:#fff; font-size:.72rem;"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>
@@ -400,6 +415,9 @@
                         <% if (exp.receipt_photo_path) { %>
                             <button class="btn btn-outline btn-sm" onclick="viewReceipt('<%= exp.receipt_photo_path %>')"><i class="fa-solid fa-image"></i></button>
                         <% } %>
+                        <button class="btn btn-outline btn-sm" onclick="cloneExpense('<%= exp.store_name.replace(/'/g, '\\\'') %>', '<%= exp.job_number || '' %>', '<%= exp.supervisor || '' %>', '<%= exp.payment_type %>', '<%= exp.net_amount %>', '<%= exp.tax_type %>', '<%= exp.expense_type || '' %>', '<%= exp.wbs_code || '' %>', '<%= (exp.description || '').replace(/'/g, '\\\'') %>')" title="Clone/Duplicate this expense">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
                         <% if (exp.status === 'pending' || exp.status === 'rejected') { %>
                             <button class="btn btn-outline btn-sm edit-expense-btn"
                                     data-id="<%= exp.id %>"
