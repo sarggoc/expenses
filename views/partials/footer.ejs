@@ -85,6 +85,27 @@
                             </div>
                         </a>
                     <% } %>
+                    <a href="/mileage" class="drawer-action-item">
+                        <div class="action-icon" style="background: #EBF5FB; color: #2980b9;"><i class="fa-solid fa-route"></i></div>
+                        <div class="action-details">
+                            <span class="action-title">GPS Mileage Tracker</span>
+                            <span class="action-desc">Track vehicle trip distance ($0.68/km)</span>
+                        </div>
+                    </a>
+                    <button type="button" onclick="requestMobilePushPermission()" class="drawer-action-item" style="border: none; background: var(--surface-2); cursor: pointer; text-align: left; width: 100%;">
+                        <div class="action-icon" style="background: #FEF9E7; color: #f39c12;"><i class="fa-solid fa-bell"></i></div>
+                        <div class="action-details">
+                            <span class="action-title">Enable Push Notifications</span>
+                            <span class="action-desc">Receive instant Android approval alerts</span>
+                        </div>
+                    </button>
+                    <button type="button" onclick="setupBiometricUnlock()" class="drawer-action-item" style="border: none; background: var(--surface-2); cursor: pointer; text-align: left; width: 100%;">
+                        <div class="action-icon" style="background: #F4ECF7; color: #8e44ad;"><i class="fa-solid fa-fingerprint"></i></div>
+                        <div class="action-details">
+                            <span class="action-title">Setup FaceID / Fingerprint</span>
+                            <span class="action-desc">Fast biometric login on your phone</span>
+                        </div>
+                    </button>
                 </div>
             </div>
         </div>
