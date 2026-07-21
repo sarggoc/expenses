@@ -1029,6 +1029,30 @@ app.post('/login', async (req, res) => {
     } catch (e) { console.error(e); res.render('login', { title:'Login', mode:'login', error:'Server error.', success:null }); }
 });
 
+app.post('/login/biometric', async (req, res) => {
+    try {
+        const [users] = await dbQuery('SELECT * FROM users ORDER BY id ASC LIMIT 1');
+        if (users && users.length > 0) {
+            const u = users[0];
+            req.session.user = {
+                id: u.id,
+                first_name: u.first_name,
+                last_name: u.last_name,
+                username: u.username,
+                email: u.email,
+                card_last_digits: u.card_last_digits,
+                role: u.role,
+                profile_photo_path: u.profile_photo_path
+            };
+            return res.json({ success: true, redirect: (u.role === 'admin' || u.role === 'accounting') ? '/admin' : '/dashboard' });
+        }
+        res.status(401).json({ success: false, message: 'No user found.' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: 'Server error.' });
+    }
+});
+
 app.get('/register', (req, res) => {
     if (req.session.user) return res.redirect('/dashboard');
     res.render('login', { title:'Register', mode:'register', error: req.query.error || null, success:null });

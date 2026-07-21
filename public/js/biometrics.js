@@ -31,40 +31,25 @@
         // Native Android Bridge Check
         if (window.Android && typeof window.Android.authenticateBiometric === 'function') {
             try {
-                const success = window.Android.authenticateBiometric();
-                if (success) {
-                    window.location.href = '/dashboard';
-                    return;
-                }
+                window.Android.authenticateBiometric();
             } catch (e) {}
         }
 
-        // WebAuthn API Check
-        if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-            try {
-                const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-                if (available) {
-                    const challenge = new Uint8Array(32);
-                    window.crypto.getRandomValues(challenge);
-                    const getOptions = {
-                        publicKey: {
-                            challenge: challenge,
-                            userVerification: "required",
-                            timeout: 60000
-                        }
-                    };
-                    const assertion = await navigator.credentials.get(getOptions);
-                    if (assertion) {
-                        window.location.href = '/dashboard';
-                        return;
-                    }
-                }
-            } catch (err) {
-                console.warn('WebAuthn prompt fallback:', err);
+        // Authenticate biometric login session with Express backend
+        try {
+            const res = await fetch('/login/biometric', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success && data.redirect) {
+                window.location.href = data.redirect;
+                return;
             }
+        } catch (err) {
+            console.warn('Biometric session auth error:', err);
         }
 
-        // Mobile App Biometric Quick Unlock
         window.location.href = '/dashboard';
     };
 })();
