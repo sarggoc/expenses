@@ -146,13 +146,28 @@
             <% } %>
         </div>
 
-    <% } else if (locals.activeView === 'add-cc' && (!user.card_last_digits || user.card_last_digits === 'None' || user.card_last_digits === 'unassigned' || user.card_last_digits === '0000')) { %>
-        <!-- ═══ NO CREDIT CARD ASSIGNED WARNING ═══ -->
+    <% } else if (locals.activeView === 'add-cc' && (!user.card_last_digits || user.card_last_digits === 'None' || user.card_last_digits === 'unassigned' || user.card_last_digits === '0000' || (typeof cardStatus !== 'undefined' && cardStatus !== 'active'))) { %>
+        <!-- ═══ DEACTIVATED / NO CREDIT CARD WARNING ═══ -->
         <div class="panel" style="max-width: 650px; margin: 0 auto; text-align: center; padding: 2.5rem 1.5rem;">
-            <div style="font-size: 2.8rem; color: var(--warning); margin-bottom: 0.75rem;"><i class="fa-solid fa-credit-card"></i></div>
-            <h3 style="margin-bottom: 0.5rem; color: var(--text);">No Company Credit Card Assigned</h3>
-            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 450px; margin: 0 auto 1.5rem auto;">
-                You do not have an assigned Company Credit Card. You cannot submit company card expenses until an administrator assigns a card reference to your profile.
+            <div style="font-size: 2.8rem; color: #e74c3c; margin-bottom: 0.75rem;"><i class="fa-solid fa-credit-card"></i></div>
+            <h3 style="margin-bottom: 0.5rem; color: var(--text);">
+                <% if (typeof cardStatus !== 'undefined' && cardStatus !== 'active') { %>
+                    Company Credit Card Deactivated
+                <% } else { %>
+                    No Company Credit Card Assigned
+                <% } %>
+            </h3>
+            <div style="margin-bottom: 1.25rem;">
+                <span class="badge" style="background: #e74c3c; color: #ffffff; font-size: 0.9rem; font-weight: 700; padding: 0.4rem 0.8rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem;">
+                    💳 **** <%= user.card_last_digits || '0000' %> (DEACTIVATED)
+                </span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
+                <% if (typeof cardStatus !== 'undefined' && cardStatus !== 'active') { %>
+                    This company credit card (**** <%= user.card_last_digits %>) has been <strong>DEACTIVATED</strong> by an administrator. Charges and expense submissions are strictly locked and prohibited.
+                <% } else { %>
+                    You do not have an active Company Credit Card assigned to your profile. You cannot submit credit card expenses until an administrator assigns an active card.
+                <% } %>
             </p>
             <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
                 <a href="/dashboard?view=add-reimb" class="btn btn-accent btn-sm"><i class="fa-solid fa-hand-holding-dollar"></i> Submit Reimbursement Claim Instead</a>

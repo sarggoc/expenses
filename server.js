@@ -1094,7 +1094,16 @@ app.get('/dashboard', requireAuth, async (req, res) => {
         const spending = await getUserSpendingSummary(req.session.user.id);
         const { supervisors, jobNumbers } = await getDropdowns();
         const [reimbursementTypes] = await dbQuery('SELECT * FROM reimbursement_types ORDER BY name ASC').catch(() => [[]]);
-        res.render('dashboard', { title:'My Expenses', expenses, settings, spending, supervisors, jobNumbers, reimbursementTypes, activeView, error: req.query.error || null, success: req.query.success || null });
+        let cardStatus = 'active';
+        const userCardDigits = (req.session.user.card_last_digits || '').trim();
+        if (userCardDigits && !['None', 'none', 'unassigned', '0000'].includes(userCardDigits)) {
+            const [wlRows] = await dbQuery('SELECT status FROM card_whitelist WHERE card_digits=? LIMIT 1', [userCardDigits]).catch(() => [[]]);
+            if (wlRows && wlRows.length > 0 && wlRows[0].status) {
+                cardStatus = wlRows[0].status;
+            }
+        }
+
+        res.render('dashboard', { title:'My Expenses', expenses, settings, spending, supervisors, jobNumbers, reimbursementTypes, activeView, cardStatus, error: req.query.error || null, success: req.query.success || null });
     } catch (e) {
         console.error(e);
         res.render('dashboard', { title:'My Expenses', expenses:[], settings: await getSettings(), spending:{approved:0,pending:0,total:0,limit:0,remaining:null}, supervisors:[], jobNumbers:[], reimbursementTypes:[], activeView, error:'Could not load expenses.', success:null });
