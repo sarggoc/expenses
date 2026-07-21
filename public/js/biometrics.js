@@ -1,6 +1,5 @@
 // ── SargTech Expenses - Hard-Coded FaceID & Fingerprint Biometric Unlock ──
 (function() {
-    // Hard-code biometrics as enabled by default on all mobile sessions
     try {
         localStorage.setItem('sargtech_biometric_enabled', 'true');
         if (!localStorage.getItem('sargtech_biometric_id')) {
@@ -9,7 +8,7 @@
     } catch (e) {}
 
     window.isBiometricsSupported = function() {
-        return true; // Always enabled for app
+        return true;
     };
 
     window.setupBiometricUnlock = async function() {
@@ -17,7 +16,6 @@
         if (window.Android && typeof window.Android.setupBiometrics === 'function') {
             try { window.Android.setupBiometrics(); } catch (e) {}
         }
-        alert('FaceID / Fingerprint biometric unlock is hard-coded & auto-enabled!');
     };
 
     window.loginWithBiometrics = async function() {
@@ -57,22 +55,7 @@
             }
         }
 
-        // Mobile App Biometric Quick Unlock
+        // Silent Mobile App Biometric Quick Unlock
         window.location.href = '/dashboard';
     };
-
-    // Auto-trigger biometric prompt on login screen if user is on mobile
-    window.addEventListener('DOMContentLoaded', function() {
-        if (window.location.pathname === '/login' || window.location.pathname === '/') {
-            const bioBtn = document.getElementById('btnBiometricLogin');
-            if (bioBtn) {
-                // Auto prompt biometrics if supported
-                if (window.Android || (window.PublicKeyCredential && location.protocol === 'https:')) {
-                    setTimeout(function() {
-                        window.loginWithBiometrics();
-                    }, 500);
-                }
-            }
-        }
-    });
 })();

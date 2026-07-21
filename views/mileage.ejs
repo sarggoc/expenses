@@ -3,12 +3,7 @@
 <div class="admin-page-header">
     <div>
         <h1 class="admin-page-title"><i class="fa-solid fa-route" style="color: var(--primary);"></i> Mileage &amp; <span>GPS Trip Tracker</span></h1>
-        <p class="admin-page-sub">Track business vehicle trips via GPS or odometer readings and claim CRA mileage reimbursements ($0.68/km).</p>
-    </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-        <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.85rem; font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 6px;">
-            CRA Mileage Rate: $0.68 / km
-        </span>
+        <p class="admin-page-sub">Track business vehicle trips via GPS or manual odometer readings.</p>
     </div>
 </div>
 
@@ -31,11 +26,8 @@
             <h2 class="panel-title"><i class="fa-solid fa-location-crosshairs"></i> Live GPS Trip Tracker</h2>
         </div>
         <div class="panel-body" style="text-align: center; padding: 1.5rem;">
-            <div id="gpsStatusDisplay" style="font-size: 2.2rem; font-weight: 800; color: var(--primary); margin-bottom: 0.25rem;">
-                0.00 <span style="font-size: 1rem; color: var(--text-muted); font-weight: 600;">km</span>
-            </div>
-            <div id="gpsEstReimb" style="font-size: 0.9rem; font-weight: 700; color: #27ae60; margin-bottom: 1.25rem;">
-                Estimated Claim: $0.00
+            <div id="gpsStatusDisplay" style="font-size: 2.5rem; font-weight: 800; color: var(--primary); margin-bottom: 1.25rem;">
+                0.00 <span style="font-size: 1.1rem; color: var(--text-muted); font-weight: 600;">km</span>
             </div>
 
             <form id="mileageForm" action="/mileage/save" method="POST" autocomplete="off">
@@ -68,20 +60,12 @@
                     <label for="manual_trip_name">Trip Purpose / Description <span class="req">*</span></label>
                     <input type="text" id="manual_trip_name" name="trip_name" required placeholder="e.g. Job #104 Site Visit">
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="manual_distance_km">Distance Driven (km) <span class="req">*</span></label>
-                        <input type="number" step="0.1" id="manual_distance_km" name="distance_km" required placeholder="e.g. 45.5" oninput="calcManualEst(this.value)">
-                    </div>
-                    <div class="form-group">
-                        <label>Reimbursement Claim</label>
-                        <div id="manualEstClaim" style="padding: 0.55rem; background: var(--surface-2); border-radius: 6px; border: 1px solid var(--border); font-weight: 700; color: #27ae60; text-align: center;">
-                            $0.00
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label for="manual_distance_km">Distance Driven (km) <span class="req">*</span></label>
+                    <input type="number" step="0.1" id="manual_distance_km" name="distance_km" required placeholder="e.g. 45.5" style="width: 100%;">
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm btn-full" style="margin-top: 0.5rem;">
-                    <i class="fa-solid fa-plus"></i> Submit Mileage Claim
+                    <i class="fa-solid fa-plus"></i> Submit Mileage Log
                 </button>
             </form>
         </div>
@@ -102,8 +86,6 @@
                         <th>Date</th>
                         <th>Trip Purpose</th>
                         <th>Distance (km)</th>
-                        <th>Rate ($/km)</th>
-                        <th>Claim Total ($)</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -114,9 +96,7 @@
                             <tr>
                                 <td><%= (m.created_at || '').toString().split('T')[0] %></td>
                                 <td><strong><%= m.trip_name %></strong></td>
-                                <td><%= parseFloat(m.distance_km || 0).toFixed(1) %> km</td>
-                                <td>$<%= parseFloat(m.rate_per_km || 0.68).toFixed(2) %></td>
-                                <td style="font-weight: 700; color: #27ae60;">$<%= parseFloat(m.total_amount || 0).toFixed(2) %></td>
+                                <td style="font-weight: 700; color: var(--primary);"><%= parseFloat(m.distance_km || 0).toFixed(1) %> km</td>
                                 <td>
                                     <span class="badge badge-pending"><%= m.status || 'pending' %></span>
                                 </td>
@@ -131,7 +111,7 @@
                         <% }) %>
                     <% } else { %>
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No mileage trips logged yet.</td>
+                            <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No mileage trips logged yet.</td>
                         </tr>
                     <% } %>
                 </tbody>
@@ -145,13 +125,6 @@ let watchId = null;
 let lastLat = null;
 let lastLng = null;
 let totalDistMeters = 0;
-
-function calcManualEst(kmVal) {
-    const km = parseFloat(kmVal) || 0;
-    const claim = km * 0.68;
-    const estDiv = document.getElementById('manualEstClaim');
-    if (estDiv) estDiv.textContent = '$' + claim.toFixed(2);
-}
 
 function getHaversineDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3;
@@ -193,8 +166,7 @@ function startGpsTracker() {
         lastLng = lng;
 
         const totalKm = (totalDistMeters / 1000).toFixed(2);
-        document.getElementById('gpsStatusDisplay').innerHTML = totalKm + ' <span style="font-size: 1rem; color: var(--text-muted); font-weight: 600;">km</span>';
-        document.getElementById('gpsEstReimb').textContent = 'Estimated Claim: $' + (totalKm * 0.68).toFixed(2);
+        document.getElementById('gpsStatusDisplay').innerHTML = totalKm + ' <span style="font-size: 1.1rem; color: var(--text-muted); font-weight: 600;">km</span>';
         document.getElementById('hidden_distance_km').value = totalKm;
     }, function(err) {
         console.warn('GPS Error:', err);
