@@ -2481,52 +2481,67 @@ app.get('/admin/tax-report/export/pdf', requireAuth, requireAdminOrApprover, asy
         res.setHeader('Content-Disposition', `attachment; filename="CRA_Canadian_Tax_Report_${selectedYear}.pdf"`);
         doc.pipe(res);
 
+        // Header Banner
         doc.rect(0, 0, 595, 60).fill('#e74c3c');
-        doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold').text(`Canadian Tax & CRA ITCs Report (${selectedYear})`, 40, 18);
-        doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString('en-CA')}`, 380, 25, { align: 'right' });
-        doc.moveDown(3.5);
+        doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold').text(`Canadian Tax & CRA ITCs Report (${selectedYear})`, 40, 20, { lineBreak: false });
+        doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString('en-CA')}`, 400, 25, { align: 'right', lineBreak: false });
 
-        doc.fillColor('#2c3e50').fontSize(11).font('Helvetica-Bold').text('CRA Line 108 Summary');
-        doc.moveDown(0.5);
-        doc.fontSize(9).font('Helvetica').fillColor('#333333');
-        doc.text(`Total Gross Expenses: $${totalGross.toFixed(2)}    Pre-Tax Subtotal: $${totalNet.toFixed(2)}`);
-        doc.text(`Total Tax Paid: $${totalTax.toFixed(2)}    CRA Line 108 Claimable ITCs: $${totalItc.toFixed(2)}`);
-        doc.moveDown(1.5);
+        doc.y = 80;
 
-        doc.fontSize(10).font('Helvetica-Bold').fillColor('#e74c3c').text('Expense Tax Transactions');
-        doc.moveDown(0.5);
+        // Summary Card Box
+        doc.roundedRect(40, doc.y, 515, 65, 4).fillAndStroke('#F8F9FA', '#E0E0E0');
+        const sumY = doc.y + 10;
+        doc.fillColor('#2c3e50').fontSize(11).font('Helvetica-Bold').text('CRA Line 108 Summary', 52, sumY, { lineBreak: false });
+        doc.fontSize(9).font('Helvetica').fillColor('#555555');
+        doc.text(`Total Gross Expenses: $${totalGross.toFixed(2)}`, 52, sumY + 18, { lineBreak: false });
+        doc.text(`Pre-Tax Subtotal: $${totalNet.toFixed(2)}`, 230, sumY + 18, { lineBreak: false });
+        doc.text(`Total Tax Paid: $${totalTax.toFixed(2)}`, 52, sumY + 34, { lineBreak: false });
+        doc.font('Helvetica-Bold').fillColor('#27ae60').text(`CRA Line 108 Claimable ITCs: $${totalItc.toFixed(2)}`, 230, sumY + 34, { lineBreak: false });
 
-        const cols = [40, 100, 200, 280, 360, 440, 510];
-        doc.fontSize(8).font('Helvetica-Bold').fillColor('#333333');
-        doc.text('Date', cols[0], doc.y, { width: 55 });
-        doc.text('Employee', cols[1], doc.y, { width: 95 });
-        doc.text('Merchant', cols[2], doc.y, { width: 75 });
-        doc.text('Origin', cols[3], doc.y, { width: 75 });
-        doc.text('Net ($)', cols[4], doc.y, { width: 75 });
-        doc.text('Tax ($)', cols[5], doc.y, { width: 65 });
-        doc.text('ITC ($)', cols[6], doc.y, { width: 65 });
-        doc.moveDown(0.5);
-        doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke('#dddddd');
-        doc.moveDown(0.3);
+        doc.y = sumY + 75;
+
+        // Section Title
+        doc.fillColor('#e74c3c').fontSize(11).font('Helvetica-Bold').text('Expense Tax Transactions', 40, doc.y, { lineBreak: false });
+        doc.y += 18;
+
+        // Table Header
+        const cols = [40, 105, 210, 295, 370, 440, 500];
+        const headerY = doc.y;
+
+        doc.rect(40, headerY - 2, 515, 18).fill('#F2F4F4');
+        doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#2c3e50');
+        doc.text('Date',      cols[0], headerY + 3, { width: 60, lineBreak: false });
+        doc.text('Employee',  cols[1], headerY + 3, { width: 100, lineBreak: false });
+        doc.text('Merchant',  cols[2], headerY + 3, { width: 80, lineBreak: false });
+        doc.text('Origin',    cols[3], headerY + 3, { width: 70, lineBreak: false });
+        doc.text('Net ($)',   cols[4], headerY + 3, { width: 65, lineBreak: false });
+        doc.text('Tax ($)',   cols[5], headerY + 3, { width: 55, lineBreak: false });
+        doc.text('ITC ($)',   cols[6], headerY + 3, { width: 55, lineBreak: false });
+
+        doc.y = headerY + 22;
 
         expenses.forEach((e, idx) => {
+            if (doc.y > 750) {
+                doc.addPage();
+                doc.y = 40;
+            }
             const rowY = doc.y;
-            if (rowY > 750) doc.addPage();
-            if (idx % 2 === 0) doc.rect(40, doc.y - 2, 515, 14).fill('#FAFBFB');
-            doc.fillColor('#333333').fontSize(7.5).font('Helvetica');
+            if (idx % 2 === 0) doc.rect(40, rowY - 1, 515, 15).fill('#FAFBFB');
+
+            doc.fillColor('#333333').fontSize(8).font('Helvetica');
             const dateStr = (e.date || '').toString().split('T')[0];
             const category = (e.expense_type || '').toLowerCase();
             const isMeal = category.includes('meal') || category.includes('food') || category.includes('entertainment');
             const itcVal = isMeal ? (parseFloat(e.tax_amount) * 0.5) : (parseFloat(e.tax_amount) || 0);
 
-            doc.text(dateStr, cols[0], rowY, { width: 55, lineBreak: false });
-            doc.text((e.employee_name || 'User').substring(0, 16), cols[1], rowY, { width: 95, lineBreak: false });
-            doc.text((e.store_name || '').substring(0, 14), cols[2], rowY, { width: 75, lineBreak: false });
-            doc.text(e.payment_type || 'Reimb', cols[3], rowY, { width: 75, lineBreak: false });
-            doc.text(`$${parseFloat(e.net_amount || 0).toFixed(2)}`, cols[4], rowY, { width: 75, lineBreak: false });
-            doc.text(`$${parseFloat(e.tax_amount || 0).toFixed(2)}`, cols[5], rowY, { width: 65, lineBreak: false });
-            doc.font('Helvetica-Bold').text(`$${itcVal.toFixed(2)}`, cols[6], rowY, { width: 65, lineBreak: false });
-            doc.y = rowY + 14;
+            doc.text(dateStr, cols[0], rowY + 2, { width: 60, lineBreak: false });
+            doc.text((e.employee_name || 'User').substring(0, 18), cols[1], rowY + 2, { width: 100, lineBreak: false });
+            doc.text((e.store_name || '').substring(0, 15), cols[2], rowY + 2, { width: 80, lineBreak: false });
+            doc.text(e.payment_type || 'Reimb', cols[3], rowY + 2, { width: 70, lineBreak: false });
+            doc.text(`$${parseFloat(e.net_amount || 0).toFixed(2)}`, cols[4], rowY + 2, { width: 65, lineBreak: false });
+            doc.text(`$${parseFloat(e.tax_amount || 0).toFixed(2)}`, cols[5], rowY + 2, { width: 55, lineBreak: false });
+            doc.font('Helvetica-Bold').fillColor('#27ae60').text(`$${itcVal.toFixed(2)}`, cols[6], rowY + 2, { width: 55, lineBreak: false });
+            doc.y = rowY + 16;
         });
 
         doc.end();
