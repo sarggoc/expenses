@@ -1,0 +1,133 @@
+<%- include('../partials/header') %>
+
+<div class="admin-page-header">
+    <div>
+        <h1 class="admin-page-title"><i class="fa-solid fa-code-branch"></i> Version <span>Changelog</span></h1>
+        <p class="admin-page-sub">System release notes, feature history, and version updates for SargTech Expenses.</p>
+    </div>
+</div>
+
+<% if (typeof error !== 'undefined' && error) { %>
+<div class="alert alert-error">
+    <i class="fa-solid fa-circle-exclamation"></i><span><%= decodeURIComponent(error) %></span>
+</div>
+<% } %>
+<% if (typeof success !== 'undefined' && success) { %>
+<div class="alert alert-success">
+    <i class="fa-solid fa-circle-check"></i><span><%= decodeURIComponent(success) %></span>
+</div>
+<% } %>
+
+<div class="changelog-container" style="max-width: 900px; margin: 0 auto 3rem auto;">
+
+    <!-- ═══ VERSION 1.2 ═══ -->
+    <div class="panel" style="margin-bottom: 1.5rem; border-left: 4px solid var(--primary);">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="badge" style="background: var(--primary); color: #fff; font-size: 0.85rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 6px;">v1.2</span>
+                <h2 class="panel-title" style="margin: 0; font-size: 1.1rem; color: var(--text);">Submitted Expenses Landing Page, Archive System &amp; Batch Approvals</h2>
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar"></i> Current Active Release</span>
+        </div>
+        <div class="panel-body" style="padding: 1.25rem;">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem;">
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-square-check" style="color: var(--primary); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Submitted Expenses Landing View</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">The primary landing page for all users and admins now defaults to displaying submitted pending expenses for fast review and action.</p>
+                    </div>
+                </li>
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-box-archive" style="color: var(--primary); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Automatic Approval Archiving</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Approved expenses automatically transition out of the active queue into the Archive view for record management.</p>
+                    </div>
+                </li>
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-list-check" style="color: var(--primary); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Batch Approval Actions</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Admins and approvers can select multiple pending claims using row checkboxes to approve or reject items in bulk.</p>
+                    </div>
+                </li>
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--primary); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Live Search &amp; Quick Date Presets</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Instant client-side text filtering across expense tables, alongside quick buttons for <em>This Month</em>, <em>Last Month</em>, <em>Quarter</em>, and <em>YTD</em>.</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ═══ VERSION 1.1 ═══ -->
+    <div class="panel" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="badge" style="background: var(--accent); color: #fff; font-size: 0.85rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 6px;">v1.1</span>
+                <h2 class="panel-title" style="margin: 0; font-size: 1.1rem; color: var(--text);">Gas Card Analytics, Group Approvals &amp; Custom Exports</h2>
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar"></i> Version 1.1</span>
+        </div>
+        <div class="panel-body" style="padding: 1.25rem;">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem;">
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-gas-pump" style="color: var(--accent); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Gas Expenses &amp; Odometer Tracking</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Dedicated fuel expense reporting, truck assignments, odometer readings, and automatic fuel consumption analytics ($/L, L/100km).</p>
+                    </div>
+                </li>
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-users-gear" style="color: var(--accent); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Department Groups &amp; Approver Roles</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Group management, assigned group approvers, and Project Manager reimbursement approval caps.</p>
+                    </div>
+                </li>
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-file-csv" style="color: var(--accent); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Multi-Format Report Exports</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Export expense reports to formatted PDF, Excel spreadsheets, and customizable CSV data formats.</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ═══ VERSION 1.0 ═══ -->
+    <div class="panel" style="border-left: 4px solid var(--border-dark);">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="badge" style="background: var(--text-muted); color: #fff; font-size: 0.85rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 6px;">v1.0</span>
+                <h2 class="panel-title" style="margin: 0; font-size: 1.1rem; color: var(--text);">Initial Release &amp; Core Expense Engine</h2>
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;"><i class="fa-regular fa-calendar"></i> Initial Release</span>
+        </div>
+        <div class="panel-body" style="padding: 1.25rem;">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem;">
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-receipt" style="color: var(--text-muted); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Core Expense Submission</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Employee reimbursement claims and company credit card expense reporting with receipt attachment support.</p>
+                    </div>
+                </li>
+                <li style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <i class="fa-solid fa-calculator" style="color: var(--text-muted); margin-top: 0.2rem; font-size: 0.9rem;"></i>
+                    <div>
+                        <strong>Tax Calculations &amp; Limits</strong>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Automatic GST and HST tax calculation with configurable per-user spending limits and card whitelisting.</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+<%- include('../partials/footer') %>

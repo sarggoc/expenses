@@ -1602,6 +1602,72 @@ app.post('/admin/expense/:id/status', requireAuth, async (req, res) => {
     } catch (e) { console.error(e); res.status(500).send('Failed to update status.'); }
 });
 
+// ── Batch approve or reject expenses
+app.post('/admin/expenses/batch-status', requireAuth, async (req, res) => {
+    const { status, expense_ids, rejection_reason } = req.body;
+    const referrer = req.get('Referrer') || '/admin/reports';
+    if (!['approved', 'rejected'].includes(status)) return res.redirect(referrer);
+
+    let ids = [];
+    if (Array.isArray(expense_ids)) {
+        ids = expense_ids.map(id => parseInt(id)).filter(Boolean);
+    } else if (typeof expense_ids === 'string') {
+        ids = expense_ids.split(',').map(id => parseInt(id.trim())).filter(Boolean);
+    }
+
+    if (ids.length === 0) {
+        return res.redirect(referrer + (referrer.includes('?') ? '&' : '?') + 'error=' + encodeURIComponent('No expenses selected for batch processing.'));
+    }
+
+    try {
+        const currentUser = req.session.user;
+        let count = 0;
+
+        for (const expId of ids) {
+            const [expRows] = await dbQuery('SELECT user_id, store_name, total_amount FROM expenses WHERE id=? LIMIT 1', [expId]);
+            if (!expRows.length) continue;
+            const exp = expRows[0];
+
+            let allowed = false;
+            if (currentUser.role === 'admin' || currentUser.role === 'accounting') {
+                allowed = true;
+            } else if (currentUser.role === 'approver' || currentUser.role === 'pm') {
+                const [grpRows] = await dbQuery(`
+                    SELECT g.id FROM groups g
+                    JOIN group_members gm ON g.id = gm.group_id
+                    WHERE g.approver_id = ? AND gm.user_id = ? LIMIT 1
+                `, [currentUser.id, exp.user_id]);
+                if (grpRows.length > 0) allowed = true;
+            }
+
+            if (!allowed) continue;
+
+            const reason = status === 'rejected' ? (rejection_reason || 'Batch rejection') : null;
+            if (status === 'approved') {
+                await dbQuery('UPDATE expenses SET status=?, rejection_reason=NULL, approved_at=CURRENT_TIMESTAMP, approved_by=? WHERE id=?',
+                    [status, currentUser.id, expId]);
+            } else {
+                await dbQuery('UPDATE expenses SET status=?, rejection_reason=?, approved_at=NULL, approved_by=NULL WHERE id=?', [status, reason, expId]);
+            }
+
+            await dbQuery('INSERT INTO expense_logs (expense_id, user_id, action, reason) VALUES (?, ?, ?, ?)',
+                [expId, currentUser.id, status, reason]);
+
+            const amountStr = parseFloat(exp.total_amount).toFixed(2);
+            let msg = `Your expense at **${exp.store_name}** for **$${amountStr}** has been **${status}**.`;
+            if (status === 'rejected' && reason) msg += ` Reason: **${reason}**`;
+            await dbQuery('INSERT INTO notifications (user_id, message, is_read, expense_id) VALUES (?, ?, 0, ?)', [exp.user_id, msg, expId]);
+            count++;
+        }
+
+        const msg = `Successfully updated ${count} expense(s) to ${status}.`;
+        res.redirect(referrer + (referrer.includes('?') ? '&' : '?') + 'success=' + encodeURIComponent(msg));
+    } catch (e) {
+        console.error(e);
+        res.redirect(referrer + (referrer.includes('?') ? '&' : '?') + 'error=' + encodeURIComponent('Batch action failed.'));
+    }
+});
+
 // ── Void expense (user can void own pending expenses)
 app.post('/expenses/void/:id', requireAuth, async (req, res) => {
     const { void_reason } = req.body;
@@ -2105,6 +2171,15 @@ app.post('/gas-expenses/validate/:id', requireAuth, requireAdmin, async (req, re
 app.get('/admin', requireAuth, requireAdmin, (req, res) => {
     const query = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
     res.redirect('/admin/reports' + query);
+});
+
+app.get('/admin/changelog', requireAuth, requireAdminOrApprover, (req, res) => {
+    res.locals.activePage = 'changelog';
+    res.render('admin/changelog', {
+        title: 'Version Changelog',
+        error: req.query.error || null,
+        success: req.query.success || null
+    });
 });
 
 app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {

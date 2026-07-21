@@ -1,7 +1,26 @@
+<div style="padding: 0.75rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 250px;">
+        <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); font-size: 0.85rem;"></i>
+        <input type="text" id="reportTableSearch" placeholder="Filter store, job #, txn ID, user, amount..." onkeyup="filterReportTable()" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; width: 100%; max-width: 320px; outline: none;">
+    </div>
+    <form id="batchActionForm" action="/admin/expenses/batch-status" method="POST" style="display: none; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <input type="hidden" name="expense_ids" id="batchExpenseIds">
+        <input type="hidden" name="status" id="batchActionStatus">
+        <span id="selectedCountBadge" class="badge" style="background: var(--primary); color: #fff; font-weight: 700; font-size: 0.78rem; padding: 0.3rem 0.6rem;">0 selected</span>
+        <button type="button" class="btn btn-accent btn-sm" onclick="submitBatchAction('approved')" style="font-size: 0.78rem;">
+            <i class="fa-solid fa-check-double"></i> Approve Selected
+        </button>
+        <button type="button" class="btn btn-sm" style="background: var(--danger-light); color: var(--danger); border: none; font-size: 0.78rem;" onclick="submitBatchAction('rejected')">
+            <i class="fa-solid fa-xmark"></i> Reject Selected
+        </button>
+    </form>
+</div>
+
 <div class="table-wrap">
-    <table class="report-table">
+    <table class="report-table" id="adminReportTable">
         <thead>
             <tr>
+                <th style="width: 38px; text-align: center;"><input type="checkbox" id="selectAllExpenses" onclick="toggleSelectAllExpenses(this)" title="Select all pending expenses"></th>
                 <th>Date</th>
                 <th>Store / Vendor</th>
                 <th>Origin</th>
@@ -18,6 +37,13 @@
         <tbody>
             <% tableExpenses.forEach(exp => { %>
             <tr>
+                <td style="text-align: center;">
+                    <% if (exp.status === 'pending') { %>
+                        <input type="checkbox" class="expense-select-cb" value="<%= exp.id %>" onclick="updateBatchSelection()">
+                    <% } else { %>
+                        <span style="color:var(--text-light); font-size:0.75rem;">—</span>
+                    <% } %>
+                </td>
                 <td><%= (exp.date || '').toString().split('T')[0] %></td>
                 <td>
                     <strong><%= exp.store_name %></strong>
@@ -147,3 +173,51 @@
         </tbody>
     </table>
 </div>
+
+<script>
+function filterReportTable() {
+    const input = document.getElementById('reportTableSearch');
+    if (!input) return;
+    const filter = input.value.toLowerCase();
+    const table = document.getElementById('adminReportTable');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+}
+
+function updateBatchSelection() {
+    const cbs = document.querySelectorAll('.expense-select-cb:checked');
+    const ids = Array.from(cbs).map(cb => cb.value);
+    const form = document.getElementById('batchActionForm');
+    const idsInput = document.getElementById('batchExpenseIds');
+    const badge = document.getElementById('selectedCountBadge');
+
+    if (ids.length > 0) {
+        if (form) form.style.display = 'inline-flex';
+        if (idsInput) idsInput.value = ids.join(',');
+        if (badge) badge.textContent = `${ids.length} selected`;
+    } else {
+        if (form) form.style.display = 'none';
+        if (idsInput) idsInput.value = '';
+    }
+}
+
+function toggleSelectAllExpenses(master) {
+    const visibleCbs = document.querySelectorAll('#adminReportTable tbody tr:not([style*="display: none"]) .expense-select-cb');
+    visibleCbs.forEach(cb => cb.checked = master.checked);
+    updateBatchSelection();
+}
+
+function submitBatchAction(status) {
+    const statusInput = document.getElementById('batchActionStatus');
+    const form = document.getElementById('batchActionForm');
+    if (statusInput && form) {
+        statusInput.value = status;
+        form.submit();
+    }
+}
+</script>

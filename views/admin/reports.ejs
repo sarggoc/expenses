@@ -92,12 +92,40 @@
                 <label for="end_date">To</label>
                 <input type="date" id="end_date" name="end_date" value="<%= endDate %>" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
             </div>
+            <div style="display: flex; gap: 0.35rem; align-items: center; margin-bottom: 2px;">
+                <button type="button" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 0.35rem 0.5rem; height: 38px;" onclick="setDatePreset('this_month')" title="Set dates to Current Month">This Month</button>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 0.35rem 0.5rem; height: 38px;" onclick="setDatePreset('last_month')" title="Set dates to Previous Month">Last Month</button>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 0.35rem 0.5rem; height: 38px;" onclick="setDatePreset('this_quarter')" title="Set dates to Current Quarter">Quarter</button>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 0.35rem 0.5rem; height: 38px;" onclick="setDatePreset('ytd')" title="Set dates to Year to Date">YTD</button>
+            </div>
             <button type="submit" class="btn btn-primary" style="height: 38px;">
                 <i class="fa-solid fa-arrow-right-to-bracket"></i> Load Report
             </button>
         </form>
     </div>
 </div>
+
+<script>
+    function setDatePreset(type) {
+        const now = new Date();
+        let start, end = new Date();
+        if (type === 'this_month') {
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (type === 'last_month') {
+            start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            end = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (type === 'this_quarter') {
+            const qMonth = Math.floor(now.getMonth() / 3) * 3;
+            start = new Date(now.getFullYear(), qMonth, 1);
+        } else if (type === 'ytd') {
+            start = new Date(now.getFullYear(), 0, 1);
+        }
+        const fmt = d => d.toISOString().split('T')[0];
+        const startElem = document.getElementById('start_date');
+        const endElem = document.getElementById('end_date');
+        if (startElem) startElem.value = fmt(start);
+        if (endElem) endElem.value = fmt(end);
+    }
 
 <script>
     function toggleReportFields(val) {
