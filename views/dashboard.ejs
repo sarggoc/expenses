@@ -371,13 +371,13 @@
                     ? (isArchiveMode ? expenses.filter(e => e.status === 'approved') : expenses.filter(e => e.status === 'pending' || e.status === 'rejected'))
                     : [];
             %>
-            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-                <div style="display:flex; align-items:center; gap:1rem;">
-                    <h2 class="panel-title" style="margin:0;">
+            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.75rem; flex:1;">
+                    <h2 class="panel-title" style="margin:0; font-size: 1.1rem;">
                         <i class="fa-solid <%= isArchiveMode ? 'fa-box-archive' : 'fa-clock' %>"></i> 
-                        <%= isArchiveMode ? 'Archive (Approved Expenses)' : 'Submitted Expenses' %>
+                        <%= isArchiveMode ? 'Archive' : 'Submitted Expenses' %>
                     </h2>
-                    <div style="display:flex; gap:0.35rem;">
+                    <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
                         <a href="/dashboard?view=history" class="btn btn-sm <%= !isArchiveMode ? 'btn-primary' : 'btn-outline' %>" style="font-size:0.78rem;">
                             <i class="fa-solid fa-clock"></i> Submitted Expenses
                         </a>
@@ -386,7 +386,7 @@
                         </a>
                     </div>
                 </div>
-                <span style="font-size: 0.8rem; color: var(--text-muted);"><%= displayExpenses.length %> record(s)</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;"><%= displayExpenses.length %> record(s)</span>
             </div>
 
             <% if (expenses && expenses.length > 0) { %>

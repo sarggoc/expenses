@@ -1097,7 +1097,99 @@ tbody tr:nth-child(even) { background: var(--surface-2); }
     }
 }
 
-/* (mobile-bottom-nav and mobile-drawer-overlay defaults moved above @media block) */
+/* ═══ MOBILE PHONE APP RESPONSIVE FIXES ═══ */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    -webkit-text-size-adjust: 100%;
+}
 
+*, *::before, *::after {
+    box-sizing: border-box;
+}
 
+@media (max-width: 768px) {
+    main {
+        padding: 0.6rem !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
 
+    .main-wrapper.has-sidebar {
+        margin-left: 0 !important;
+        padding-bottom: 75px !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    .panel {
+        max-width: 100% !important;
+        border-radius: 10px !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .panel-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.6rem !important;
+        padding: 0.85rem 0.9rem !important;
+        width: 100% !important;
+    }
+
+    .panel-header > div {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+
+    .panel-title {
+        font-size: 1.05rem !important;
+        line-height: 1.3 !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .admin-page-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.75rem !important;
+        padding: 0.75rem !important;
+    }
+
+    .admin-page-header > div {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+    }
+
+    .dashboard-layout, .form-row, .grid, .user-cards-grid, .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .table-wrap, .table-responsive, .panel-body {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .btn {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .btn-sm {
+        padding: 0.35rem 0.6rem !important;
+        font-size: 0.76rem !important;
+    }
+
+    .tax-calc-box, .spending-card, .summary-card {
+        padding: 0.85rem !important;
+    }
+
+    .modal-overlay > div, #taxExportModal > div {
+        max-width: 95vw !important;
+        margin: 0.5rem !important;
+    }
+}
