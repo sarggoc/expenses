@@ -888,3 +888,18 @@ window.requestMobilePushPermission = function() {
     }
 };
 
+// ── Hard-Coded Auto-Enable Mobile Push Notifications ──
+(function autoRegisterPushNotifications() {
+    localStorage.setItem('sargtech_push_alerts_enabled', 'true');
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('Mobile Push Service Worker auto-registered:', reg);
+        }).catch(function() {});
+    }
+    if ('Notification' in window && Notification.permission === 'default') {
+        try {
+            Notification.requestPermission();
+        } catch (e) {}
+    }
+})();
+
