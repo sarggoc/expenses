@@ -14,6 +14,8 @@
             document.documentElement.setAttribute('data-theme', t);
         })();
     </script>
+    <script src="/js/offline.js" defer></script>
+    <script src="/js/biometrics.js" defer></script>
 </head>
 <body>
 
@@ -418,12 +420,7 @@
                     <span class="logo-sub"><%= sub %></span>
                 <% } %>
             </div>
-            <button class="mobile-notif-btn" id="mobileNotifBtn" aria-label="Notifications">
-                <i class="fa-solid fa-bell"></i>
-                <% if (locals.unreadNotificationsCount > 0) { %>
-                    <span class="notif-badge-dot"></span>
-                <% } %>
-            </button>
+            <span style="width:38px;"></span>
         </header>
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 

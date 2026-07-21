@@ -39,12 +39,11 @@
                         <div class="meta-item"><strong><%= user.username %></strong>Username</div>
                         <div class="meta-item"><strong><%= user.email %></strong>Email</div>
                     </div>
-                    <div style="border-top: 1px solid var(--border-light); padding-top: 0.875rem;">
-                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem;">Card Reference ID</div>
-                        <span class="card-id-badge">
-                            <i class="fa-solid fa-credit-card"></i>
-                            <%= user.card_last_digits %>
-                        </span>
+                    <div style="border-top: 1px solid var(--border-light); padding-top: 0.875rem; margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <span style="font-size: 0.78rem; font-weight: 600; color: var(--text);"><i class="fa-solid fa-mobile-screen-button"></i> Mobile Push Alerts</span>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="requestMobilePushPermission()" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                            <i class="fa-solid fa-bell"></i> Enable Push Notifications
+                        </button>
                     </div>
                 </div>
             </div>

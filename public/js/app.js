@@ -852,3 +852,36 @@ window.handleEditDropzoneFile = function(e) {
     }
 };
 
+// ── Service Worker & Mobile Push Notification Support ──
+if ('serviceWorker' in navigator && 'PushManager' in window) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('Push Service Worker registered:', reg);
+        }).catch(function(err) {
+            console.warn('Push Service Worker registration failed:', err);
+        });
+    });
+}
+
+window.requestMobilePushPermission = function() {
+    if (!('Notification' in window)) {
+        alert('Push notifications are not supported on this browser/device.');
+        return;
+    }
+    Notification.requestPermission().then(function(permission) {
+        if (permission === 'granted') {
+            alert('Push notifications enabled successfully!');
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(function(reg) {
+                    reg.showNotification('SargTech Expenses', {
+                        body: 'Mobile Push Notifications enabled!',
+                        icon: '/images/favicon.png'
+                    });
+                });
+            }
+        } else {
+            alert('Notification permission denied.');
+        }
+    });
+};
+

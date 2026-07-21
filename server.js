@@ -262,6 +262,16 @@ async function initSQLite() {
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN hst_amount REAL DEFAULT 0`); } catch (e) {}
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN claimable_itc REAL DEFAULT 0`); } catch (e) {}
     try { await runSQLite(`ALTER TABLE expenses ADD COLUMN vendor_gst_number TEXT DEFAULT NULL`); } catch (e) {}
+    try { await runSQLite(`CREATE TABLE IF NOT EXISTS mileage_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        trip_name TEXT NOT NULL,
+        distance_km REAL DEFAULT 0,
+        rate_per_km REAL DEFAULT 0.68,
+        total_amount REAL DEFAULT 0,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`); } catch (e) {}
     try { await runSQLite(`CREATE TABLE IF NOT EXISTS reimbursement_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
@@ -2846,6 +2856,54 @@ app.post('/admin/tax-report/export/package', requireAuth, requireAdminOrApprover
     } catch (e) {
         console.error(e);
         res.status(500).send('Failed to generate export package.');
+    }
+});
+
+// ── Mileage & GPS Trip Tracker ──
+app.get('/mileage', requireAuth, async (req, res) => {
+    res.locals.activePage = 'mileage';
+    try {
+        const [mileageLogs] = await dbQuery('SELECT * FROM mileage_logs WHERE user_id=? ORDER BY created_at DESC', [req.session.user.id]);
+        res.render('mileage', {
+            title: 'Mileage & GPS Trip Tracker',
+            mileageLogs: mileageLogs || [],
+            error: req.query.error || null,
+            success: req.query.success || null
+        });
+    } catch (e) {
+        console.error(e);
+        res.render('mileage', { title: 'Mileage & GPS Trip Tracker', mileageLogs: [], error: 'Failed to load mileage logs.', success: null });
+    }
+});
+
+app.post('/mileage/save', requireAuth, async (req, res) => {
+    const { trip_name, distance_km } = req.body;
+    const km = parseFloat(distance_km);
+    if (!trip_name || isNaN(km) || km <= 0) {
+        return res.redirect('/mileage?error=' + encodeURIComponent('Please enter a valid trip purpose and distance.'));
+    }
+
+    const rate = 0.68;
+    const totalAmount = km * rate;
+
+    try {
+        await dbQuery(
+            'INSERT INTO mileage_logs (user_id, trip_name, distance_km, rate_per_km, total_amount, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.session.user.id, trip_name.trim(), km, rate, totalAmount, 'pending']
+        );
+        res.redirect('/mileage?success=' + encodeURIComponent(`Trip logged successfully! Claim: $${totalAmount.toFixed(2)}`));
+    } catch (e) {
+        console.error(e);
+        res.redirect('/mileage?error=' + encodeURIComponent('Failed to save mileage log.'));
+    }
+});
+
+app.post('/mileage/delete/:id', requireAuth, async (req, res) => {
+    try {
+        await dbQuery('DELETE FROM mileage_logs WHERE id=? AND user_id=?', [req.params.id, req.session.user.id]);
+        res.redirect('/mileage?success=' + encodeURIComponent('Mileage log deleted.'));
+    } catch (e) {
+        res.redirect('/mileage?error=' + encodeURIComponent('Failed to delete log.'));
     }
 });
 
