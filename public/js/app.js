@@ -827,3 +827,28 @@ window.autoCalculateReverseTax = function() {
     }
 };
 
+window.updateEditDropzoneLabel = function(input) {
+    const nameContainer = document.getElementById('editSelectedFileName');
+    if (!nameContainer) return;
+    if (input.files && input.files.length > 0) {
+        nameContainer.textContent = 'Selected File: ' + input.files[0].name;
+        nameContainer.style.display = 'block';
+    } else {
+        nameContainer.style.display = 'none';
+    }
+};
+
+window.handleEditDropzoneFile = function(e) {
+    e.preventDefault();
+    const container = document.getElementById('editDropzoneContainer');
+    if (container) container.style.borderColor = 'var(--border)';
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length > 0) {
+        const fileInput = document.getElementById('edit_receipt_photo');
+        if (fileInput) {
+            fileInput.files = dt.files;
+            window.updateEditDropzoneLabel(fileInput);
+        }
+    }
+};
+
