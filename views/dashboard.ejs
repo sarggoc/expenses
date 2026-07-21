@@ -159,7 +159,7 @@
             </h3>
             <div style="margin-bottom: 1.25rem;">
                 <span class="badge" style="background: #e74c3c; color: #ffffff; font-size: 0.9rem; font-weight: 700; padding: 0.4rem 0.8rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem;">
-                    💳 **** <%= user.card_last_digits || '0000' %> (DEACTIVATED)
+                    <i class="fa-solid fa-credit-card"></i> **** <%= user.card_last_digits || '0000' %> (DEACTIVATED)
                 </span>
             </div>
             <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
@@ -195,8 +195,8 @@
                         <span style="font-weight: 600; font-size: 0.85rem; color: var(--text); display: flex; align-items: center; gap: 0.4rem;">
                             <i class="fa-solid fa-credit-card" style="color: var(--primary);"></i> Assigned Company Card:
                         </span>
-                        <span class="badge" style="background: #0078d7; color: #ffffff; font-size: 0.85rem; font-weight: 700; padding: 0.3rem 0.65rem; border-radius: 6px;">
-                            💳 **** <%= user.card_last_digits %>
+                        <span class="badge" style="background: #0078d7; color: #ffffff; font-size: 0.85rem; font-weight: 700; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem;">
+                            <i class="fa-solid fa-credit-card"></i> **** <%= user.card_last_digits %>
                         </span>
                     </div>
                     <% } %>
