@@ -2104,7 +2104,7 @@ app.post('/gas-expenses/validate/:id', requireAuth, requireAdmin, async (req, re
 
 app.get('/admin', requireAuth, requireAdmin, (req, res) => {
     const query = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
-    res.redirect('/admin/settings/general' + query);
+    res.redirect('/admin/reports' + query);
 });
 
 app.get('/admin/status', requireAuth, requireAdmin, async (req, res) => {
@@ -2738,6 +2738,7 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
     const selectedUserId = req.query.user_id || '';
     const selectedTruck = req.query.truck_assigned || '';
     const selectedGroupId = req.query.group_id || '';
+    const activeView = req.query.view || 'submitted';
 
     try {
         let users;
@@ -2915,6 +2916,55 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
                     groupUserBreakdown = Object.values(breakdownMap);
                 }
             }
+        } else if (!selectedUserId && !selectedTruck && !selectedGroupId) {
+            const targetStatus = (activeView === 'archive') ? "('approved')" : "('pending')";
+            if (currentUser.role === 'admin' || currentUser.role === 'accounting') {
+                const [expRows] = await dbQuery(`
+                    SELECT e.*, u.first_name || ' ' || u.last_name AS user_name,
+                           u_app.first_name || ' ' || u_app.last_name AS approved_by_name
+                    FROM expenses e
+                    JOIN users u ON e.user_id = u.id
+                    LEFT JOIN users u_app ON e.approved_by = u_app.id
+                    WHERE e.status IN ${targetStatus}
+                    ORDER BY e.date DESC, e.created_at DESC
+                `).catch(async () => {
+                    return await dbQuery(`
+                        SELECT e.*, CONCAT(u.first_name, ' ', u.last_name) AS user_name,
+                               CONCAT(u_app.first_name, ' ', u_app.last_name) AS approved_by_name
+                        FROM expenses e
+                        JOIN users u ON e.user_id = u.id
+                        LEFT JOIN users u_app ON e.approved_by = u_app.id
+                        WHERE e.status IN ${targetStatus}
+                        ORDER BY e.date DESC, e.created_at DESC
+                    `);
+                });
+                expenses = expRows;
+            } else {
+                const [expRows] = await dbQuery(`
+                    SELECT e.*, u.first_name || ' ' || u.last_name AS user_name,
+                           u_app.first_name || ' ' || u_app.last_name AS approved_by_name
+                    FROM expenses e
+                    JOIN users u ON e.user_id = u.id
+                    JOIN group_members gm ON u.id = gm.user_id
+                    JOIN groups g ON gm.group_id = g.id
+                    LEFT JOIN users u_app ON e.approved_by = u_app.id
+                    WHERE g.approver_id = ? AND e.status IN ${targetStatus}
+                    ORDER BY e.date DESC, e.created_at DESC
+                `, [currentUser.id]).catch(async () => {
+                    return await dbQuery(`
+                        SELECT e.*, CONCAT(u.first_name, ' ', u.last_name) AS user_name,
+                               CONCAT(u_app.first_name, ' ', u_app.last_name) AS approved_by_name
+                        FROM expenses e
+                        JOIN users u ON e.user_id = u.id
+                        JOIN group_members gm ON u.id = gm.user_id
+                        JOIN groups g ON gm.group_id = g.id
+                        LEFT JOIN users u_app ON e.approved_by = u_app.id
+                        WHERE g.approver_id = ? AND e.status IN ${targetStatus}
+                        ORDER BY e.date DESC, e.created_at DESC
+                    `, [currentUser.id]);
+                });
+                expenses = expRows;
+            }
         }
 
         const gasAnalytics = [];
@@ -2986,7 +3036,7 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
         });
 
         res.render('admin/reports', {
-            title: 'Expense Reports',
+            title: activeView === 'archive' ? 'Archive - Approved Expenses' : 'Expense Reports & Approvals',
             users,
             groups,
             trucks,
@@ -3001,6 +3051,7 @@ app.get('/admin/reports', requireAuth, requireAdminOrApprover, async (req, res) 
             pendingJobsMap,
             startDate,
             endDate,
+            activeView,
             error: req.query.error || null,
             success: req.query.success || null
         });

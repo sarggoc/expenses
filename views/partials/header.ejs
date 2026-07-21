@@ -68,8 +68,11 @@
                         <i class="fa-solid fa-credit-card"></i> Add Credit Card
                     </a>
                     <% } %>
-                    <a href="/dashboard?view=history" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && (locals.activeView === 'history' || !locals.activeView) ? 'active' : '' %>">
+                    <a href="/dashboard?view=history" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && (locals.activeView === 'history' || locals.activeView === 'submitted' || !locals.activeView) ? 'active' : '' %>">
                         <i class="fa-solid fa-history"></i> Claims History
+                    </a>
+                    <a href="/dashboard?view=archive" class="sidebar-sub-link <%= locals.activePage === 'dashboard' && locals.activeView === 'archive' ? 'active' : '' %>">
+                        <i class="fa-solid fa-box-archive"></i> Archive
                     </a>
                 </div>
             </div>
@@ -194,9 +197,13 @@
                 <i class="fa-solid fa-credit-card"></i>
                 <span>Employee Spending</span>
             </a>
-            <a href="/admin/reports" class="sidebar-link <%= locals.activePage === 'reports' ? 'active' : '' %>">
+            <a href="/admin/reports" class="sidebar-link <%= locals.activePage === 'reports' && locals.activeView !== 'archive' ? 'active' : '' %>">
                 <i class="fa-solid fa-file-invoice-dollar"></i>
                 <span>Expense Reports</span>
+            </a>
+            <a href="/admin/reports?view=archive" class="sidebar-link <%= locals.activePage === 'reports' && locals.activeView === 'archive' ? 'active' : '' %>">
+                <i class="fa-solid fa-box-archive"></i>
+                <span>Archive</span>
             </a>
             <% } %>
         </nav>

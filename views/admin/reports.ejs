@@ -20,8 +20,19 @@
 
 <!-- ═══ FILTER BAR ═══ -->
 <div class="panel no-print" style="margin-bottom: 1.5rem;">
-    <div class="panel-header">
-        <h2 class="panel-title"><i class="fa-solid fa-filter"></i> Generate Cycle Report</h2>
+    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <h2 class="panel-title" style="margin:0;">
+            <i class="fa-solid <%= locals.activeView === 'archive' ? 'fa-box-archive' : 'fa-clock' %>"></i>
+            <%= locals.activeView === 'archive' ? 'Archive (Approved Expenses)' : 'Submitted Expenses & Approvals' %>
+        </h2>
+        <div style="display:flex; gap:0.35rem;">
+            <a href="/admin/reports?view=submitted" class="btn btn-sm <%= locals.activeView !== 'archive' ? 'btn-primary' : 'btn-outline' %>">
+                <i class="fa-solid fa-clock"></i> Submitted Expenses
+            </a>
+            <a href="/admin/reports?view=archive" class="btn btn-sm <%= locals.activeView === 'archive' ? 'btn-primary' : 'btn-outline' %>">
+                <i class="fa-solid fa-box-archive"></i> Archive
+            </a>
+        </div>
     </div>
     <div class="panel-body">
         <form action="/admin/reports" method="GET" class="filter-bar" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
@@ -629,10 +640,24 @@
 
 <% } else { %>
     <div class="panel">
-        <div class="panel-body" style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
-            <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--primary); opacity: 0.25; margin-bottom: 1rem; display: block;"></i>
-            <p style="font-weight: 500; font-size: 1rem;">No report loaded</p>
-            <p style="font-size: 0.85rem; margin-top: 0.25rem;">Please select a report target (Employee, Truck, or Group) and choose the cycle dates from the filter bar above.</p>
+        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <h3 class="panel-title" style="margin:0;">
+                <i class="fa-solid <%= locals.activeView === 'archive' ? 'fa-box-archive' : 'fa-file-invoice-dollar' %>"></i>
+                <%= locals.activeView === 'archive' ? 'Archived / Approved Expenses' : 'Submitted Expenses Awaiting Approval' %>
+            </h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted);"><%= expenses.length %> record(s)</span>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <% if (expenses && expenses.length > 0) { %>
+                <%- include('partials/reports_table', { tableExpenses: expenses }) %>
+            <% } else { %>
+                <div class="empty-state" style="padding: 3.5rem 1rem; text-align: center;">
+                    <i class="fa-solid <%= locals.activeView === 'archive' ? 'fa-box-archive' : 'fa-circle-check' %>" style="font-size: 3rem; color: var(--text-light); opacity: 0.4; margin-bottom: 1rem; display: block;"></i>
+                    <p style="font-size: 0.95rem; color: var(--text-muted);">
+                        <%= locals.activeView === 'archive' ? 'No archived expenses found.' : 'No submitted expenses pending approval.' %>
+                    </p>
+                </div>
+            <% } %>
         </div>
     </div>
 <% } %>
